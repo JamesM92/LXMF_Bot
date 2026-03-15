@@ -3,15 +3,11 @@
 from commands import register, help_menu, category_help
 
 
-# -------------------------
-# Help Command
-# -------------------------
-
 @register(
     "help",
     "Show command categories",
     category="core",
-    cooldown=5,
+    cooldown=30,
     aliases=["?", "h"]
 )
 def help_cmd(args):
