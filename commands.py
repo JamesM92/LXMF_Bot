@@ -124,7 +124,7 @@ def handle_command(message, sender):
     args = parts[1:]
 
     if cmd not in COMMANDS:
-        return None, False  # handled separately in bot
+        return None, False  # handled in bot layer
 
     entry = COMMANDS[cmd]
 
