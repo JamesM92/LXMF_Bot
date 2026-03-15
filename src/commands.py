@@ -46,6 +46,7 @@ def register(name, desc, category="general", admin=False, cooldown=60, aliases=N
 
     def wrapper(func):
 
+        # Store canonical command
         COMMANDS[name] = {
             "func": func,
             "desc": desc,
@@ -54,8 +55,9 @@ def register(name, desc, category="general", admin=False, cooldown=60, aliases=N
             "cooldown": cooldown
         }
 
+        # Map aliases → canonical name
         for alias in aliases:
-            COMMANDS[alias] = COMMANDS[name]
+            COMMANDS[alias] = name
 
         return func
 
@@ -106,8 +108,9 @@ def help_menu(page=1):
     grouped = {}
 
     for cmd, entry in COMMANDS.items():
-        category = entry.get("category", "general")
-        grouped.setdefault(category, []).append((cmd, entry))
+        if isinstance(entry, dict):  # ignore aliases
+            category = entry.get("category", "general")
+            grouped.setdefault(category, []).append((cmd, entry))
 
     categories = sorted(grouped.keys())
     total_pages = max(1, (len(categories) + HELP_PAGE_SIZE - 1) // HELP_PAGE_SIZE)
@@ -145,7 +148,8 @@ def category_help(category_name):
     matches = [
         (cmd, entry)
         for cmd, entry in COMMANDS.items()
-        if entry.get("category", "general").lower() == category_name
+        if isinstance(entry, dict)
+        and entry.get("category", "general").lower() == category_name
     ]
 
     if not matches:
@@ -171,14 +175,19 @@ def handle_command(message, sender):
     if not parts:
         return help_menu(1)
 
-    cmd = parts[0].lower()
+    raw_cmd = parts[0].lower()
     args = parts[1:]
+
+    # Resolve alias → canonical command
+    cmd = raw_cmd
+    if cmd in COMMANDS and isinstance(COMMANDS[cmd], str):
+        cmd = COMMANDS[cmd]
 
     # -----------------
     # HELP HANDLING
     # -----------------
 
-    if cmd in ["help", "?", "h"]:
+    if cmd == "help":
 
         if not args:
             return help_menu(1)
@@ -189,7 +198,7 @@ def handle_command(message, sender):
         return category_help(args[0])
 
     # -----------------
-    # Command Exists?
+    # Validate Command
     # -----------------
 
     if cmd not in COMMANDS:
@@ -203,18 +212,18 @@ def handle_command(message, sender):
     now = time.time()
 
     # -----------------
-    # Command-Level Cooldown
+    # Command Cooldown
     # -----------------
 
     user_data = USER_LAST_COMMAND.get(sender, {})
-    last_used_time = user_data.get(cmd, 0)
+    last_used = user_data.get(cmd, 0)
 
-    if now - last_used_time < entry["cooldown"]:
-        remaining = int(entry["cooldown"] - (now - last_used_time))
+    if now - last_used < entry["cooldown"]:
+        remaining = int(entry["cooldown"] - (now - last_used))
         return f"Command cooldown. Try again in {remaining}s.", True
 
     # -----------------
-    # Global Cooldown (Only if Switching Commands)
+    # Global Cooldown (Only When Switching Commands)
     # -----------------
 
     previous_command = user_data.get("last_command")
