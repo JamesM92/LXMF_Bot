@@ -3,12 +3,18 @@ import os
 import sys
 import time
 import hashlib
+import inspect
+
+# =====================================================
+# Global Registry
+# =====================================================
 
 COMMANDS = {}
 BOT_INSTANCE = None
 
+
 # =====================================================
-# Registration
+# Command Registration
 # =====================================================
 
 def register(name, desc, category="general", admin=False, cooldown=60, aliases=None):
@@ -26,6 +32,7 @@ def register(name, desc, category="general", admin=False, cooldown=60, aliases=N
             "cooldown": cooldown
         }
 
+        # Store aliases as references to main command
         for alias in aliases:
             COMMANDS[alias] = name
 
@@ -45,7 +52,9 @@ def set_bot(bot):
 
 ADMIN_ADDRESSES = {"PUT_LXMF_ADDRESS_HERE"}
 
-ADMIN_PASSWORD_HASH = hashlib.sha256("changeme".encode()).hexdigest()
+ADMIN_PASSWORD_HASH = hashlib.sha256(
+    "changeme".encode()
+).hexdigest()
 
 ACTIVE_ADMINS = {}
 LOGIN_COOLDOWN = {}
@@ -79,10 +88,13 @@ def admin_login(sender, password):
 
 
 # =====================================================
-# Plugin Hot Reload
+# Plugin Hot Reload System
 # =====================================================
 
-PLUGIN_DIR = os.path.join(os.path.dirname(__file__), "plugins")
+PLUGIN_DIR = os.path.join(
+    os.path.dirname(__file__),
+    "plugins"
+)
 
 _loaded = {}
 _mtimes = {}
@@ -109,6 +121,7 @@ def scan_plugins(force=False):
         if f.endswith(".py") and f != "__init__.py"
     }
 
+    # Load or reload plugins
     for file in current_files:
 
         module_name = f"plugins.{file[:-3]}"
@@ -119,21 +132,27 @@ def scan_plugins(force=False):
         except FileNotFoundError:
             continue
 
+        # New plugin
         if module_name not in sys.modules:
             importlib.import_module(module_name)
             _loaded[module_name] = True
             _mtimes[module_name] = mtime
             continue
 
+        # Modified plugin
         if _mtimes.get(module_name, 0) < mtime:
             importlib.reload(sys.modules[module_name])
             _mtimes[module_name] = mtime
 
+    # Remove deleted plugins
     for module_name in list(_loaded.keys()):
         filename = module_name.split(".")[-1] + ".py"
+
         if filename not in current_files:
+
             if module_name in sys.modules:
                 del sys.modules[module_name]
+
             del _loaded[module_name]
             del _mtimes[module_name]
 
@@ -143,7 +162,7 @@ def load_plugins():
 
 
 # =====================================================
-# Command Handler (Cooldown + Admin Safe)
+# Command Handler (FIXED + BACKWARD COMPATIBLE)
 # =====================================================
 
 def handle_command(message, sender):
@@ -151,6 +170,7 @@ def handle_command(message, sender):
     scan_plugins()
 
     parts = message.strip().split()
+
     if not parts:
         return None, False
 
@@ -162,17 +182,33 @@ def handle_command(message, sender):
 
     entry = COMMANDS[cmd]
 
+    # Resolve aliases
     if isinstance(entry, str):
         cmd = entry
         entry = COMMANDS[cmd]
 
+    # Admin check
     if entry["admin"] and not is_admin(sender):
         return "Admin only.", True
 
     try:
-        result = entry["func"](args)
+
+        func = entry["func"]
+
+        # 🔥 Detect function signature
+        sig = inspect.signature(func)
+
+        if len(sig.parameters) == 2:
+            # New style: (args, sender)
+            result = func(args, sender)
+        else:
+            # Legacy style: (args)
+            result = func(args)
+
         if isinstance(result, tuple):
             return result
+
         return result, True
+
     except Exception as e:
         return f"Command error: {repr(e)}", True
