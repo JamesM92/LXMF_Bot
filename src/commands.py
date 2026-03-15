@@ -103,7 +103,7 @@ def help_menu():
             admin_flag = " (admin)" if entry.get("admin") else ""
             output.append(f"  • {cmd}{admin_flag} - {entry['desc']}")
             
-    output.append("https://github.com/JamesM92/LXMF_Bot")
+    output.append("\n\nhttps://github.com/JamesM92/LXMF_Bot")
     return "\n".join(output)
 
 
