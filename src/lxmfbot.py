@@ -58,13 +58,9 @@ class LXMFBot:
 
         print("🌐 Community Mesh Node Online")
 
-    # -------------------------
-
     def toggle_lockdown(self):
         self.state["lockdown"] = not self.state["lockdown"]
         return self.state["lockdown"]
-
-    # -------------------------
 
     def _message_received(self, message):
 
@@ -110,8 +106,6 @@ class LXMFBot:
         else:
             reply("Unknown command. Use help.")
 
-    # -------------------------
-
     def send(self, destination, message):
 
         try:
@@ -141,8 +135,6 @@ class LXMFBot:
         )
 
         self.queue.put(lxm)
-
-    # -------------------------
 
     def run(self):
 
