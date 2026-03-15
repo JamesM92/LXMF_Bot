@@ -32,9 +32,6 @@ def set_bot(bot):
 # -------------------------
 
 def register(name, desc, category="general", admin=False, cooldown=60):
-    """
-    cooldown = seconds
-    """
 
     def wrapper(func):
         COMMANDS[name] = {
@@ -114,17 +111,31 @@ def handle_command(message, sender):
 
 
 # -------------------------
-# Help Menu
+# Grouped Help Menu
 # -------------------------
 
 def help_menu():
 
-    out = ["Commands:\n"]
+    if not COMMANDS:
+        return "No commands available."
 
-    for cmd in sorted(COMMANDS):
-        out.append(f"{cmd} - {COMMANDS[cmd]['desc']}")
+    grouped = {}
 
-    return "\n".join(out)
+    for cmd, entry in COMMANDS.items():
+        category = entry.get("category", "general")
+        grouped.setdefault(category, []).append((cmd, entry))
+
+    output = ["Commands:\n"]
+
+    for category in sorted(grouped):
+
+        output.append(f"\n📦 {category.upper()}")
+
+        for cmd, entry in sorted(grouped[category]):
+            admin_flag = " (admin)" if entry.get("admin") else ""
+            output.append(f"  • {cmd}{admin_flag} - {entry['desc']}")
+
+    return "\n".join(output)
 
 
 # -------------------------
