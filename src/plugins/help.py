@@ -1,47 +1,56 @@
 import math
-from commands import register, get_commands_snapshot
+from commands import register, COMMANDS
 
-PAGE_SIZE = 10
+PAGE_SIZE = 5
 
 
-def build_category_view(commands):
+def get_snapshot():
+
+    snapshot = {}
+
+    for name, entry in COMMANDS.items():
+        if isinstance(entry, dict):
+            snapshot[name] = entry
+
+    return snapshot
+
+
+def build_categories(commands):
 
     grouped = {}
 
     for name, data in commands.items():
         grouped.setdefault(data["category"], []).append(name)
 
-    output = ["📖 COMMAND CATEGORIES\n"]
+    lines = ["📖 COMMAND CATEGORIES\n"]
 
     for category in sorted(grouped):
-        output.append(
-            f"📦 {category} ({len(grouped[category])})"
-        )
+        lines.append(f"📦 {category}")
 
-    output.append("\nUse: help <category>")
-    return "\n".join(output)
+    lines.append("\nUse: help <category>")
+    return "\n".join(lines)
 
 
 @register(
     "help",
     "Show help menu",
     category="core",
-    aliases=["?", "h"],
-    cooldown=5
+    cooldown=5,
+    aliases=["?", "h"]
 )
 def help_cmd(args):
 
-    commands = get_commands_snapshot()
+    commands = get_snapshot()
 
     if not args:
-        return build_category_view(commands)
+        return build_categories(commands)
 
-    category = args[0]
+    category = args[0].lower()
 
     filtered = [
         (name, data)
         for name, data in commands.items()
-        if data["category"].lower() == category.lower()
+        if data["category"].lower() == category
     ]
 
     if not filtered:
@@ -49,16 +58,10 @@ def help_cmd(args):
 
     total_pages = math.ceil(len(filtered) / PAGE_SIZE)
 
-    lines = [
-        f"📂 {category}",
-        f"Total Pages: {total_pages}\n"
-    ]
+    lines = [f"📂 {category} ({total_pages} pages)\n"]
 
     for name, data in filtered[:PAGE_SIZE]:
-
         admin_flag = " (admin)" if data["admin"] else ""
-        lines.append(
-            f"• {name}{admin_flag} - {data['desc']}"
-        )
+        lines.append(f"• {name}{admin_flag} - {data['desc']}")
 
     return "\n".join(lines)
