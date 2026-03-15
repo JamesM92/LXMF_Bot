@@ -11,12 +11,13 @@ import commands
 
 class LXMFBot:
 
+    GLOBAL_COOLDOWN = 60
+
     def __init__(self, name="CommunityNode"):
 
         self.name = name
         self.queue = Queue()
 
-        # ✅ Global state dictionary (RESTORED)
         self.state = {
             "stats": {
                 "total": 0,
@@ -24,6 +25,9 @@ class LXMFBot:
                 "per_command": {}
             }
         }
+
+        # Cooldown tracking
+        self.cooldowns = {}
 
         dirs = AppDirs("LXMFBot", "community")
         self.base_path = os.path.join(dirs.user_data_dir, name)
@@ -74,35 +78,79 @@ class LXMFBot:
         if not content:
             return
 
+        cmd_name = content.split()[0].lower()
+
         response, handled = commands.handle_command(
             content, sender
         )
 
-        if handled and response is not None:
+        if not handled:
+            self.send(sender, "❌ Unrecognized command.")
+            return
 
-            # ✅ Update stats only for successful commands
-            self._update_stats(sender, content)
+        # Admin bypass
+        entry = commands.COMMANDS.get(cmd_name)
 
+        if isinstance(entry, str):
+            entry = commands.COMMANDS.get(entry)
+
+        if entry and entry.get("admin") and commands.is_admin(sender):
+            self._update_stats(sender, cmd_name)
             self.send(sender, str(response))
+            return
 
-        elif not handled:
-            self.send(
-                sender,
-                "❌ Unrecognized command."
-            )
+        # Cooldown check
+        if not self._check_cooldown(sender, cmd_name, entry):
+            return
+
+        self._update_stats(sender, cmd_name)
+        self.send(sender, str(response))
 
     # =====================================================
-    # Stats Tracking
+    # Cooldown Logic (FIXED)
     # =====================================================
 
-    def _update_stats(self, sender, content):
+    def _check_cooldown(self, sender, cmd, entry):
 
-        cmd = content.split()[0].lower()
+        now = time.time()
+
+        if sender not in self.cooldowns:
+            self.cooldowns[sender] = {}
+
+        user_data = self.cooldowns[sender]
+
+        command_cooldown = 60
+        if entry:
+            command_cooldown = entry.get("cooldown", 60)
+
+        # Determine effective cooldown on first use
+        if cmd not in user_data:
+            effective = min(self.GLOBAL_COOLDOWN, command_cooldown)
+        else:
+            effective = command_cooldown
+
+        last_used = user_data.get(cmd, 0)
+
+        if now - last_used < effective:
+
+            remaining = int(effective - (now - last_used))
+
+            self.send(sender, f"⏳ Please wait {remaining}s.")
+            return False
+
+        # Update timestamp
+        user_data[cmd] = now
+        return True
+
+    # =====================================================
+    # Stats
+    # =====================================================
+
+    def _update_stats(self, sender, cmd):
 
         stats = self.state["stats"]
 
         stats["total"] += 1
-
         stats["per_user"][sender] = \
             stats["per_user"].get(sender, 0) + 1
 
