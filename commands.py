@@ -82,7 +82,7 @@ def admin_login(sender, password):
 
 
 # -------------------------
-# Help Menu (Grouped)
+# Grouped Help Menu
 # -------------------------
 
 def help_menu():
@@ -123,9 +123,8 @@ def handle_command(message, sender):
     cmd = parts[0].lower()
     args = parts[1:]
 
-    # Unrecognized command
     if cmd not in COMMANDS:
-        return "❌ Unrecognized command.\n\n" + help_menu(), True
+        return None, False  # handled separately in bot
 
     entry = COMMANDS[cmd]
 
