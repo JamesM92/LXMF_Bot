@@ -1,7 +1,7 @@
 import math
 from commands import register, get_commands_snapshot
 
-PAGE_SIZE = 5
+PAGE_SIZE = 10
 
 
 def build_category_view(commands):
