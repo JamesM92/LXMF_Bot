@@ -1,7 +1,7 @@
-from commands import register, reload_plugins, admin_login
+from commands import register, admin_login, is_admin
 
-@register("admin", "Authenticate admin session", "admin")
-def admin_auth(args):
+@register("admin", "Login as admin", "admin")
+def admin_cmd(args):
 
     if len(args) < 2:
         return "Usage: admin PASSWORD"
@@ -9,14 +9,14 @@ def admin_auth(args):
     password = args[0]
     sender = args[-1]
 
-    success, message = admin_login(sender, password)
+    success, msg = admin_login(sender, password)
 
-    return message
+    return msg
 
 
-@register("reload", "Reload plugins", "admin", admin=True)
-def reload_cmd(args):
+@register("lockdown", "Toggle lockdown mode", "admin", admin=True)
+def lockdown(args):
 
-    reload_plugins()
+    from lxmfbot import LXMFBot
 
-    return "Plugins reloaded."
+    return "Lockdown feature available in state system."
