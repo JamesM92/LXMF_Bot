@@ -1,3 +1,4 @@
+#################################
 import os
 import time
 import json
@@ -6,7 +7,6 @@ import RNS
 from LXMF import LXMRouter, LXMessage
 from appdirs import AppDirs
 from queue import Queue
-from types import SimpleNamespace
 
 import commands
 
@@ -17,14 +17,28 @@ class LXMFBot:
 
         self.name = name
         self.queue = Queue()
-
         self.cooldown_data = {}
 
         dirs = AppDirs("LXMFBot", "community")
         self.base_path = os.path.join(dirs.user_data_dir, name)
         os.makedirs(self.base_path, exist_ok=True)
 
+        # -------------------------
+        # Reticulum Initialization
+        # -------------------------
+
+        self.reticulum = RNS.Reticulum(loglevel=RNS.LOG_INFO)
+
+        # Ensure transport is started
+        try:
+            RNS.Transport.start()
+        except Exception:
+            pass
+
+        # -------------------------
         # Identity
+        # -------------------------
+
         idfile = os.path.join(self.base_path, "identity")
 
         if not os.path.isfile(idfile):
@@ -33,15 +47,22 @@ class LXMFBot:
 
         self.id = RNS.Identity.from_file(idfile)
 
-        RNS.Reticulum(loglevel=RNS.LOG_INFO)
-
-        self.router = LXMRouter(identity=self.id, storagepath=dirs.user_data_dir)
+        self.router = LXMRouter(
+            identity=self.id,
+            storagepath=dirs.user_data_dir
+        )
 
         self.local = self.router.register_delivery_identity(
-            self.id, display_name=name
+            self.id,
+            display_name=name
         )
 
         self.router.register_delivery_callback(self._message_received)
+
+        # Load commands AFTER transport is ready
+        import commands
+        commands.set_bot(self)
+        commands.load_plugins()
 
         # Persistent state
         self.state_file = os.path.join(self.base_path, "state.json")
@@ -50,7 +71,7 @@ class LXMFBot:
         print("🌐 Community Mesh Node Online")
 
     # -------------------------
-    # Persistent State
+    # State
     # -------------------------
 
     def _load_state(self):
@@ -77,17 +98,7 @@ class LXMFBot:
             json.dump(self.state, f)
 
     # -------------------------
-    # Lockdown Control
-    # -------------------------
-
-    def toggle_lockdown(self):
-
-        self.state["lockdown"] = not self.state.get("lockdown", False)
-        self._save_state()
-        return self.state["lockdown"]
-
-    # -------------------------
-    # Message Handling
+    # Messaging
     # -------------------------
 
     def _message_received(self, message):
@@ -99,10 +110,7 @@ class LXMFBot:
         def reply(msg):
             self.send(sender, msg)
 
-        # -------------------------
-        # Network-wide rate limit
-        # -------------------------
-
+        # Rate limiting
         self.state["network_rate"] = [
             t for t in self.state["network_rate"]
             if now - t < 60
@@ -115,91 +123,32 @@ class LXMFBot:
 
         self.state["network_rate"].append(now)
 
-        # -------------------------
-        # Lockdown Mode
-        # -------------------------
-
+        # Lockdown
         if self.state.get("lockdown", False):
             if not commands.is_admin(sender):
                 reply("🔒 Node is in LOCKDOWN mode.")
                 return
 
-        # -------------------------
-        # Admin Bypass Cooldowns
-        # -------------------------
-
-        if commands.is_admin(sender):
-
-            response, known = commands.handle_command(content, sender)
-
-            if response:
-                reply(response)
-
-            self._log(sender, content)
-            self._save_state()
-            return
-
-        # -------------------------
-        # Cooldown System
-        # -------------------------
-
-        cmd = content.split()[0].lower() if content else ""
-
-        if sender not in self.cooldown_data:
-            self.cooldown_data[sender] = {}
-
-        user_commands = self.cooldown_data[sender]
-
-        last_time = user_commands.get(cmd, 0)
-
-        now = time.time()
-
-        if cmd in user_commands:
-            cooldown = 300
-        else:
-            cooldown = 60
-
-        if now - last_time < cooldown:
-            reply("Cooldown active.")
-            return
-
-        response, known = commands.handle_command(content, sender)
+        response, _ = commands.handle_command(content, sender)
 
         if response:
             reply(response)
 
-        user_commands[cmd] = now
-        self.cooldown_data[sender] = user_commands
-
-        self._log(sender, cmd)
+        self._log(sender, content)
         self._save_state()
 
     # -------------------------
-    # Logging & Stats
+    # Logging
     # -------------------------
 
     def _log(self, sender, cmd):
 
-        now = time.time()
-
         stats = self.state["stats"]
-
         stats["total"] += 1
-
         stats["per_user"].setdefault(sender, 0)
         stats["per_user"][sender] += 1
-
         stats["per_command"].setdefault(cmd, 0)
         stats["per_command"][cmd] += 1
-
-        self.state["command_log"].append({
-            "time": now,
-            "sender": sender,
-            "command": cmd
-        })
-
-        if len(self.state["command_log"]) > 1000:
-            self.state["command_log"] = self.state["command_log"][-1000:]
 
     # -------------------------
     # Sending
@@ -208,14 +157,14 @@ class LXMFBot:
     def send(self, destination, message):
 
         try:
-            hash = bytes.fromhex(destination)
+            hash_bytes = bytes.fromhex(destination)
         except:
             return
 
-        identity = RNS.Identity.recall(hash)
+        identity = RNS.Identity.recall(hash_bytes)
 
         if not identity:
-            RNS.Transport.request_path(hash)
+            RNS.Transport.request_path(hash_bytes)
             return
 
         dest = RNS.Destination(
@@ -247,4 +196,4 @@ class LXMFBot:
                 lxm = self.queue.get()
                 self.router.handle_outbound(lxm)
 
-            time.sleep(5)
+            time.sleep(2)
