@@ -24,12 +24,7 @@ class LXMFBot:
         self.base_path = os.path.join(dirs.user_data_dir, name)
         os.makedirs(self.base_path, exist_ok=True)
 
-        self.reticulum = RNS.Reticulum(loglevel=RNS.LOG_INFO)
-
-        try:
-            RNS.Transport.start()
-        except Exception:
-            pass
+        RNS.Reticulum(loglevel=RNS.LOG_INFO)
 
         idfile = os.path.join(self.base_path, "identity")
 
@@ -77,7 +72,6 @@ class LXMFBot:
         if not content:
             return
 
-        # Admin bypass
         if commands.is_admin(sender):
 
             response, _ = commands.handle_command(
@@ -97,7 +91,8 @@ class LXMFBot:
                 "last_command_time": 0,
                 "commands": {},
                 "warnings": {},
-                "last_invalid_time": 0
+                "last_invalid_time": 0,
+                "last_invalid_warning": 0
             }
 
         user_data = self.cooldown_data[sender]
@@ -105,28 +100,27 @@ class LXMFBot:
         command_entry = commands.COMMANDS.get(cmd)
 
         # =====================================================
-        # UNRECOGNIZED COMMAND COOLDOWN
+        # UNRECOGNIZED COMMAND LOGIC
         # =====================================================
 
         if not command_entry:
 
-            UNRECOGNIZED_COOLDOWN = 30
+            ONE_HOUR = 3600
+            ONE_MINUTE = 60
 
-            if now - user_data["last_invalid_time"] < UNRECOGNIZED_COOLDOWN:
-
-                remaining = int(
-                    UNRECOGNIZED_COOLDOWN -
-                    (now - user_data["last_invalid_time"])
-                )
-
-                reply(
-                    f"❌ Unrecognized command. "
-                    f"Try again in {remaining}s.\n\n"
-                    + commands.help_menu()
-                )
-
+            # 1-minute warning cooldown
+            if now - user_data["last_invalid_warning"] < ONE_MINUTE:
                 return
 
+            user_data["last_invalid_warning"] = now
+
+            # Within 1-hour window → warning only
+            if now - user_data["last_invalid_time"] < ONE_HOUR:
+
+                reply("❌ Unrecognized command.")
+                return
+
+            # First time / expired → show help
             user_data["last_invalid_time"] = now
 
             reply(
@@ -148,10 +142,10 @@ class LXMFBot:
             command_cooldown
         )
 
-        last_used_global = user_data["last_command_time"]
-        last_used_cmd = user_data["commands"].get(cmd, 0)
-
-        last_used = max(last_used_global, last_used_cmd)
+        last_used = max(
+            user_data["last_command_time"],
+            user_data["commands"].get(cmd, 0)
+        )
 
         if now - last_used < effective_cooldown:
 
@@ -179,7 +173,7 @@ class LXMFBot:
             reply(response)
 
     # -------------------------
-    # Send Message
+    # Send
     # -------------------------
 
     def send(self, destination, message):
@@ -206,7 +200,7 @@ class LXMFBot:
         lxm = LXMessage(
             dest,
             self.local,
-            message,
+            str(message),
             desired_method=LXMessage.DIRECT
         )
 
