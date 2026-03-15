@@ -1,10 +1,23 @@
+##############################
+
 import time
 from commands import register
 
+
+# Track uptime start
 START_TIME = time.time()
 
 
-@register("uptime", "Show node uptime", "community")
+# -------------------------
+# Uptime
+# -------------------------
+
+@register(
+    "uptime",
+    "Show node uptime",
+    category="community",
+    cooldown=60
+)
 def uptime(args):
 
     seconds = int(time.time() - START_TIME)
@@ -18,13 +31,33 @@ def uptime(args):
     return f"Node Uptime: {hours}h {minutes}m {seconds}s"
 
 
-@register("time", "Show node time", "community")
+# -------------------------
+# Node Time
+# -------------------------
+
+@register(
+    "time",
+    "Show node time",
+    category="community",
+    cooldown=60
+)
 def node_time(args):
 
-    return time.strftime("Node Time: %Y-%m-%d %H:%M:%S")
+    return time.strftime(
+        "Node Time: %Y-%m-%d %H:%M:%S"
+    )
 
 
-@register("echo", "Echo back your message", "community")
+# -------------------------
+# Echo
+# -------------------------
+
+@register(
+    "echo",
+    "Echo back your message",
+    category="community",
+    cooldown=60
+)
 def echo(args):
 
     if len(args) <= 1:
@@ -36,7 +69,16 @@ def echo(args):
     return f"{sender}: {message}"
 
 
-@register("info", "Show community node info", "community")
+# -------------------------
+# Info
+# -------------------------
+
+@register(
+    "info",
+    "Show community node info",
+    category="community",
+    cooldown=60
+)
 def info(args):
 
     return (
