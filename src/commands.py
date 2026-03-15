@@ -4,13 +4,12 @@ import sys
 import time
 import hashlib
 
-# =====================================================
-# Registry
-# =====================================================
-
 COMMANDS = {}
 BOT_INSTANCE = None
 
+# =====================================================
+# Registration
+# =====================================================
 
 def register(name, desc, category="general", admin=False, cooldown=60, aliases=None):
 
@@ -41,36 +40,12 @@ def set_bot(bot):
 
 
 # =====================================================
-# Public API for Help Plugin
-# =====================================================
-
-def get_commands_snapshot():
-
-    snapshot = {}
-
-    for name, entry in COMMANDS.items():
-
-        if not isinstance(entry, dict):
-            continue
-
-        snapshot[name] = {
-            "desc": entry["desc"],
-            "category": entry.get("category", "general"),
-            "admin": entry.get("admin", False)
-        }
-
-    return snapshot
-
-
-# =====================================================
 # Admin System
 # =====================================================
 
 ADMIN_ADDRESSES = {"PUT_LXMF_ADDRESS_HERE"}
 
-ADMIN_PASSWORD_HASH = hashlib.sha256(
-    "changeme".encode()
-).hexdigest()
+ADMIN_PASSWORD_HASH = hashlib.sha256("changeme".encode()).hexdigest()
 
 ACTIVE_ADMINS = {}
 LOGIN_COOLDOWN = {}
@@ -107,16 +82,12 @@ def admin_login(sender, password):
 # Plugin Hot Reload
 # =====================================================
 
-PLUGIN_DIR = os.path.join(
-    os.path.dirname(__file__),
-    "plugins"
-)
+PLUGIN_DIR = os.path.join(os.path.dirname(__file__), "plugins")
 
 _loaded = {}
 _mtimes = {}
-
-SCAN_INTERVAL = 5
 _last_scan = 0
+SCAN_INTERVAL = 5
 
 
 def scan_plugins(force=False):
@@ -149,26 +120,20 @@ def scan_plugins(force=False):
             continue
 
         if module_name not in sys.modules:
-
             importlib.import_module(module_name)
             _loaded[module_name] = True
             _mtimes[module_name] = mtime
             continue
 
         if _mtimes.get(module_name, 0) < mtime:
-
             importlib.reload(sys.modules[module_name])
             _mtimes[module_name] = mtime
 
     for module_name in list(_loaded.keys()):
-
         filename = module_name.split(".")[-1] + ".py"
-
         if filename not in current_files:
-
             if module_name in sys.modules:
                 del sys.modules[module_name]
-
             del _loaded[module_name]
             del _mtimes[module_name]
 
@@ -178,7 +143,7 @@ def load_plugins():
 
 
 # =====================================================
-# Command Dispatcher (FIXED)
+# Command Handler (Cooldown + Admin Safe)
 # =====================================================
 
 def handle_command(message, sender):
@@ -186,7 +151,6 @@ def handle_command(message, sender):
     scan_plugins()
 
     parts = message.strip().split()
-
     if not parts:
         return None, False
 
@@ -206,13 +170,9 @@ def handle_command(message, sender):
         return "Admin only.", True
 
     try:
-        # IMPORTANT: DO NOT pass sender to args
         result = entry["func"](args)
-
         if isinstance(result, tuple):
             return result
-
         return result, True
-
     except Exception as e:
         return f"Command error: {repr(e)}", True
