@@ -5,7 +5,16 @@ import RNS
 from commands import register
 
 
-@register("interfaces", "Show active Reticulum interfaces", "network")
+# -------------------------
+# Interfaces
+# -------------------------
+
+@register(
+    "interfaces",
+    "Show active Reticulum interfaces",
+    category="network",
+    cooldown=20
+)
 def interfaces(args):
 
     try:
@@ -14,13 +23,24 @@ def interfaces(args):
         if not interfaces:
             return "No active interfaces found."
 
-        return "Active Interfaces:\n" + "\n".join(f"- {i}" for i in interfaces)
+        return "Active Interfaces:\n" + "\n".join(
+            f"- {i}" for i in interfaces
+        )
 
     except Exception as e:
         return f"Error: {repr(e)}"
 
 
-@register("neighbors", "Show known network neighbors", "network")
+# -------------------------
+# Neighbors
+# -------------------------
+
+@register(
+    "neighbors",
+    "Show known network neighbors",
+    category="network",
+    cooldown=30
+)
 def neighbors(args):
 
     try:
@@ -33,13 +53,24 @@ def neighbors(args):
         if not neighbors:
             return "No neighbors currently known."
 
-        return "Known Neighbors:\n" + "\n".join(f"- {n}" for n in neighbors)
+        return "Known Neighbors:\n" + "\n".join(
+            f"- {n}" for n in neighbors
+        )
 
     except Exception as e:
         return f"Error: {repr(e)}"
 
 
-@register("paths", "Show known destination paths", "network")
+# -------------------------
+# Paths
+# -------------------------
+
+@register(
+    "paths",
+    "Show known destination paths",
+    category="network",
+    cooldown=30
+)
 def paths(args):
 
     try:
@@ -48,22 +79,35 @@ def paths(args):
         if not paths:
             return "No known paths."
 
-        return "Known Paths:\n" + "\n".join(f"- {p}" for p in paths)
+        return "Known Paths:\n" + "\n".join(
+            f"- {p}" for p in paths
+        )
 
     except Exception as e:
         return f"Error: {repr(e)}"
 
 
-@register("nodeinfo", "Show Reticulum node information", "network")
+# -------------------------
+# Node Info
+# -------------------------
+
+@register(
+    "nodeinfo",
+    "Show Reticulum node information",
+    category="network",
+    cooldown=30
+)
 def nodeinfo(args):
 
     try:
         interfaces = getattr(RNS.Transport, "interfaces", [])
+
         neighbors = getattr(
             RNS.Transport,
             "neighbours",
             getattr(RNS.Transport, "neighbors", [])
         )
+
         paths = getattr(RNS.Transport, "paths", [])
 
         info = [
@@ -81,11 +125,22 @@ def nodeinfo(args):
         return f"Error: {repr(e)}"
 
 
-@register("announce", "Manually trigger LXMF announce", "network", admin=True)
+# -------------------------
+# Announce (Admin Only)
+# -------------------------
+
+@register(
+    "announce",
+    "Manually trigger LXMF announce",
+    category="network",
+    admin=True,
+    cooldown=0
+)
 def announce(args):
 
     try:
         RNS.Transport.announce()
         return "Announcement sent."
+
     except Exception as e:
         return f"Failed to send announce: {repr(e)}"
