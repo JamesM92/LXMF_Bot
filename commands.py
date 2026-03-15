@@ -9,16 +9,27 @@ COMMANDS = {}
 BOT_INSTANCE = None
 
 ADMIN_ADDRESSES = {"PUT_LXMF_ADDRESS_HERE"}
-ADMIN_PASSWORD_HASH = hashlib.sha256("changeme".encode()).hexdigest()
+
+ADMIN_PASSWORD_HASH = hashlib.sha256(
+    "changeme".encode()
+).hexdigest()
 
 ACTIVE_ADMINS = {}
 LOGIN_COOLDOWN = {}
 
 
+# -------------------------
+# Bot Reference
+# -------------------------
+
 def set_bot(bot):
     global BOT_INSTANCE
     BOT_INSTANCE = bot
 
+
+# -------------------------
+# Command Registration
+# -------------------------
 
 def register(name, desc, category="general", admin=False):
 
@@ -34,6 +45,10 @@ def register(name, desc, category="general", admin=False):
     return wrapper
 
 
+# -------------------------
+# Admin Check
+# -------------------------
+
 def is_admin(sender):
 
     if sender in ADMIN_ADDRESSES:
@@ -44,6 +59,32 @@ def is_admin(sender):
 
     return False
 
+
+# -------------------------
+# Admin Login
+# -------------------------
+
+def admin_login(sender, password):
+
+    now = time.time()
+
+    # Login cooldown
+    if LOGIN_COOLDOWN.get(sender, 0) > now:
+        return False, "Login cooldown active."
+
+    LOGIN_COOLDOWN[sender] = now + 30
+
+    # Password check
+    if hashlib.sha256(password.encode()).hexdigest() == ADMIN_PASSWORD_HASH:
+        ACTIVE_ADMINS[sender] = now + 1800
+        return True, "Admin authenticated."
+
+    return False, "Invalid password."
+
+
+# -------------------------
+# Command Handler
+# -------------------------
 
 def handle_command(message, sender):
 
@@ -69,6 +110,10 @@ def handle_command(message, sender):
         return f"Command error: {repr(e)}", True
 
 
+# -------------------------
+# Help Menu
+# -------------------------
+
 def help_menu():
 
     out = ["Commands:\n"]
@@ -80,16 +125,21 @@ def help_menu():
 
 
 # -------------------------
-# Plugin Loader (CALLED FROM BOT)
+# Plugin Loader
 # -------------------------
 
 def load_plugins():
 
-    plugin_path = os.path.join(os.path.dirname(__file__), "plugins")
+    plugin_path = os.path.join(
+        os.path.dirname(__file__),
+        "plugins"
+    )
 
     if not os.path.isdir(plugin_path):
         return
 
     for file in os.listdir(plugin_path):
         if file.endswith(".py") and file != "__init__.py":
-            importlib.import_module(f"plugins.{file[:-3]}")
+            importlib.import_module(
+                f"plugins.{file[:-3]}"
+            )
