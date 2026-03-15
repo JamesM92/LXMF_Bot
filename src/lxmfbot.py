@@ -1,5 +1,3 @@
-#################################
-
 import os
 import time
 import RNS
@@ -46,10 +44,7 @@ class LXMFBot:
             self._message_received
         )
 
-        # -------------------------
-        # Bot State
-        # -------------------------
-
+        # Bot state
         self.state = {
             "lockdown": False,
             "stats": {
@@ -65,16 +60,11 @@ class LXMFBot:
         print("🌐 Community Mesh Node Online")
 
     # -------------------------
-    # Lockdown
-    # -------------------------
 
     def toggle_lockdown(self):
-
         self.state["lockdown"] = not self.state["lockdown"]
         return self.state["lockdown"]
 
-    # -------------------------
-    # Message Handling
     # -------------------------
 
     def _message_received(self, message):
@@ -104,7 +94,6 @@ class LXMFBot:
 
         if handled:
 
-            # Stats tracking
             stats = self.state["stats"]
             stats["total"] += 1
 
@@ -120,10 +109,8 @@ class LXMFBot:
                 reply(response)
 
         else:
-            reply("❌ Unrecognized command.")
+            reply(commands.help_menu())
 
-    # -------------------------
-    # Send
     # -------------------------
 
     def send(self, destination, message):
@@ -156,8 +143,6 @@ class LXMFBot:
 
         self.queue.put(lxm)
 
-    # -------------------------
-    # Run Loop
     # -------------------------
 
     def run(self):
