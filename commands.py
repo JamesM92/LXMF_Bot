@@ -28,7 +28,7 @@ def set_bot(bot):
 
 
 # -------------------------
-# Command Registration
+# Register Commands
 # -------------------------
 
 def register(name, desc, category="general", admin=False):
@@ -81,7 +81,7 @@ def admin_login(sender, password):
 
 
 # -------------------------
-# Command Handler
+# Handle Commands
 # -------------------------
 
 def handle_command(message, sender):
