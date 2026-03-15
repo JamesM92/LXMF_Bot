@@ -87,9 +87,6 @@ def admin_login(sender, password):
 
 def help_menu():
 
-    if not COMMANDS:
-        return "No commands available."
-
     grouped = {}
 
     for cmd, entry in COMMANDS.items():
@@ -124,7 +121,7 @@ def handle_command(message, sender):
     args = parts[1:]
 
     if cmd not in COMMANDS:
-        return None, False  # handled in bot layer
+        return None, False
 
     entry = COMMANDS[cmd]
 
