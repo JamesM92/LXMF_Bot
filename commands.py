@@ -68,13 +68,11 @@ def admin_login(sender, password):
 
     now = time.time()
 
-    # Login cooldown
     if LOGIN_COOLDOWN.get(sender, 0) > now:
         return False, "Login cooldown active."
 
     LOGIN_COOLDOWN[sender] = now + 30
 
-    # Password check
     if hashlib.sha256(password.encode()).hexdigest() == ADMIN_PASSWORD_HASH:
         ACTIVE_ADMINS[sender] = now + 1800
         return True, "Admin authenticated."
@@ -105,7 +103,8 @@ def handle_command(message, sender):
         return "Admin only.", True
 
     try:
-        return entry["func"](args + [sender]), True
+        result = entry["func"](args + [sender])
+        return result, True
     except Exception as e:
         return f"Command error: {repr(e)}", True
 
