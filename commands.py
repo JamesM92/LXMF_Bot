@@ -32,9 +32,6 @@ def set_bot(bot):
 # -------------------------
 
 def register(name, desc, category="general", admin=False, cooldown=60):
-    """
-    cooldown = per-command cooldown in seconds
-    """
 
     def wrapper(func):
         COMMANDS[name] = {
@@ -85,36 +82,7 @@ def admin_login(sender, password):
 
 
 # -------------------------
-# Handle Commands
-# -------------------------
-
-def handle_command(message, sender):
-
-    parts = message.strip().split()
-
-    if not parts:
-        return help_menu(), False
-
-    cmd = parts[0].lower()
-    args = parts[1:]
-
-    if cmd not in COMMANDS:
-        return help_menu(), False
-
-    entry = COMMANDS[cmd]
-
-    if entry["admin"] and not is_admin(sender):
-        return "Admin only.", True
-
-    try:
-        result = entry["func"](args + [sender])
-        return result, True
-    except Exception as e:
-        return f"Command error: {repr(e)}", True
-
-
-# -------------------------
-# Grouped Help Menu
+# Help Menu (Grouped)
 # -------------------------
 
 def help_menu():
@@ -139,6 +107,36 @@ def help_menu():
             output.append(f"  • {cmd}{admin_flag} - {entry['desc']}")
 
     return "\n".join(output)
+
+
+# -------------------------
+# Handle Commands
+# -------------------------
+
+def handle_command(message, sender):
+
+    parts = message.strip().split()
+
+    if not parts:
+        return help_menu(), False
+
+    cmd = parts[0].lower()
+    args = parts[1:]
+
+    # Unrecognized command
+    if cmd not in COMMANDS:
+        return "❌ Unrecognized command.\n\n" + help_menu(), True
+
+    entry = COMMANDS[cmd]
+
+    if entry["admin"] and not is_admin(sender):
+        return "Admin only.", True
+
+    try:
+        result = entry["func"](args + [sender])
+        return result, True
+    except Exception as e:
+        return f"Command error: {repr(e)}", True
 
 
 # -------------------------
