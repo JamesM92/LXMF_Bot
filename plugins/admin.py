@@ -1,4 +1,4 @@
-from commands import register, admin_login, is_admin
+from commands import register, admin_login
 
 
 @register("login", "Authenticate as admin", "admin")
@@ -13,6 +13,3 @@ def login(args):
     success, message = admin_login(sender, password)
 
     return message, True
-
-
-
