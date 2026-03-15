@@ -3,18 +3,15 @@ from commands import register
 
 start_time = time.time()
 
-
-@register("weather", "Show temperature")
-def weather(args):
-    return "Current temperature: 22°C"
-
-
-@register("ping", "Test if bot is alive")
+@register("ping", "Test bot response", "tools")
 def ping(args):
     return "pong"
 
+@register("weather", "Show temperature", "tools")
+def weather(args):
+    return "Current temperature: 22°C"
 
-@register("uptime", "Show bot uptime")
+@register("uptime", "Show bot uptime", "tools")
 def uptime(args):
 
     seconds = int(time.time() - start_time)
@@ -22,7 +19,7 @@ def uptime(args):
     minutes = seconds // 60
     hours = minutes // 60
 
-    minutes = minutes % 60
-    seconds = seconds % 60
+    minutes %= 60
+    seconds %= 60
 
     return f"Uptime: {hours}h {minutes}m {seconds}s"
