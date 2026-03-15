@@ -12,7 +12,7 @@ def admin_cmd(args):
 
     success, msg = admin_login(sender, password)
 
-    return msg
+    return msg , True
 
 
 @register("lockdown", "Toggle lockdown mode", "admin", admin=True)
