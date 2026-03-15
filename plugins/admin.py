@@ -1,11 +1,18 @@
-from commands import register, admin_login, is_admin, BOT_INSTANCE
+##############################
+
+from commands import register, admin_login, BOT_INSTANCE
 
 
 # -------------------------
-# Admin Login Command
+# Admin Login
 # -------------------------
 
-@register("admin", "Login as admin", "admin")
+@register(
+    "admin",
+    "Login as admin",
+    category="admin",
+    cooldown=30
+)
 def admin_cmd(args):
 
     if len(args) < 2:
@@ -20,10 +27,15 @@ def admin_cmd(args):
 
 
 # -------------------------
-# Lockdown Toggle
+# Lockdown Toggle (Admin Only)
 # -------------------------
 
-@register("lockdown", "Toggle lockdown mode", "admin", admin=True)
+@register(
+    "lockdown",
+    "Toggle lockdown mode",
+    category="admin",
+    admin=True
+)
 def lockdown(args):
 
     bot = BOT_INSTANCE
@@ -33,14 +45,22 @@ def lockdown(args):
 
     status = bot.toggle_lockdown()
 
-    return "🔒 Lockdown ON" if status else "🔓 Lockdown OFF", True
+    if status:
+        return "🔒 Lockdown ON", True
+    else:
+        return "🔓 Lockdown OFF", True
 
 
 # -------------------------
-# Stats Command
+# Stats Command (Admin Only)
 # -------------------------
 
-@register("stats", "Show usage statistics", "admin", admin=True)
+@register(
+    "stats",
+    "Show usage statistics",
+    category="admin",
+    admin=True
+)
 def stats(args):
 
     bot = BOT_INSTANCE
@@ -51,9 +71,8 @@ def stats(args):
     stats_data = bot.state["stats"]
 
     return (
-        f"📊 Stats\n"
-        f"Total: {stats_data['total']}\n"
-        f"Users: {len(stats_data['per_user'])}\n"
-        f"Commands: {len(stats_data['per_command'])}",
-        True
-    )
+        "📊 Stats\n"
+        f"Total Commands: {stats_data['total']}\n"
+        f"Unique Users: {len(stats_data['per_user'])}\n"
+        f"Unique Commands: {len(stats_data['per_command'])}"
+    ), True
