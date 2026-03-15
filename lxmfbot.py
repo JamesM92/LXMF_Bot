@@ -29,7 +29,6 @@ class LXMFBot:
 
         self.reticulum = RNS.Reticulum(loglevel=RNS.LOG_INFO)
 
-        # Ensure transport is started
         try:
             RNS.Transport.start()
         except Exception:
@@ -59,19 +58,24 @@ class LXMFBot:
 
         self.router.register_delivery_callback(self._message_received)
 
-        # Load commands AFTER transport is ready
-        import commands
+        # -------------------------
+        # Load Commands + Plugins HERE
+        # -------------------------
+
         commands.set_bot(self)
         commands.load_plugins()
 
-        # Persistent state
+        # -------------------------
+        # Persistent State
+        # -------------------------
+
         self.state_file = os.path.join(self.base_path, "state.json")
         self._load_state()
 
         print("🌐 Community Mesh Node Online")
 
     # -------------------------
-    # State
+    # State Handling
     # -------------------------
 
     def _load_state(self):
@@ -98,7 +102,7 @@ class LXMFBot:
             json.dump(self.state, f)
 
     # -------------------------
-    # Messaging
+    # Message Handling
     # -------------------------
 
     def _message_received(self, message):
@@ -110,7 +114,7 @@ class LXMFBot:
         def reply(msg):
             self.send(sender, msg)
 
-        # Rate limiting
+        # Rate limit
         self.state["network_rate"] = [
             t for t in self.state["network_rate"]
             if now - t < 60
@@ -144,6 +148,7 @@ class LXMFBot:
     def _log(self, sender, cmd):
 
         stats = self.state["stats"]
+
         stats["total"] += 1
         stats["per_user"].setdefault(sender, 0)
         stats["per_user"][sender] += 1
@@ -191,7 +196,6 @@ class LXMFBot:
     def run(self):
 
         while True:
-
             while not self.queue.empty():
                 lxm = self.queue.get()
                 self.router.handle_outbound(lxm)
