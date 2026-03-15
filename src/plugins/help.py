@@ -11,7 +11,7 @@ from commands import register, help_menu, category_help
     "help",
     "Show command categories",
     category="core",
-    cooldown=30,
+    cooldown=5,
     aliases=["?", "h"]
 )
 def help_cmd(args):
