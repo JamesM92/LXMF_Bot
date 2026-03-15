@@ -8,6 +8,10 @@ import hashlib
 COMMANDS = {}
 BOT_INSTANCE = None
 
+# -------------------------
+# Admin Settings
+# -------------------------
+
 ADMIN_ADDRESSES = {"PUT_LXMF_ADDRESS_HERE"}
 
 ADMIN_PASSWORD_HASH = hashlib.sha256(
@@ -46,6 +50,7 @@ def register(name, desc, category="general", admin=False, cooldown=60, aliases=N
 
     def wrapper(func):
 
+        # Canonical command
         COMMANDS[name] = {
             "func": func,
             "desc": desc,
@@ -54,8 +59,9 @@ def register(name, desc, category="general", admin=False, cooldown=60, aliases=N
             "cooldown": cooldown
         }
 
+        # Aliases → canonical
         for alias in aliases:
-            COMMANDS[alias] = name  # alias → canonical
+            COMMANDS[alias] = name
 
         return func
 
@@ -75,6 +81,26 @@ def is_admin(sender):
         return True
 
     return False
+
+
+# -------------------------
+# Admin Login  (OPTION A FIX)
+# -------------------------
+
+def admin_login(sender, password):
+
+    now = time.time()
+
+    if LOGIN_COOLDOWN.get(sender, 0) > now:
+        return False, "Login cooldown active."
+
+    LOGIN_COOLDOWN[sender] = now + 30
+
+    if hashlib.sha256(password.encode()).hexdigest() == ADMIN_PASSWORD_HASH:
+        ACTIVE_ADMINS[sender] = now + 1800
+        return True, "Admin authenticated."
+
+    return False, "Invalid password."
 
 
 # -------------------------
@@ -141,7 +167,7 @@ def category_help(category_name):
 
 
 # -------------------------
-# Main Command Handler
+# Handle Commands
 # -------------------------
 
 def handle_command(message, sender):
@@ -159,10 +185,7 @@ def handle_command(message, sender):
     if cmd in COMMANDS and isinstance(COMMANDS[cmd], str):
         cmd = COMMANDS[cmd]
 
-    # -----------------
     # HELP
-    # -----------------
-
     if cmd == "help":
 
         if not args:
@@ -172,10 +195,6 @@ def handle_command(message, sender):
             return help_menu(int(args[0]))
 
         return category_help(args[0])
-
-    # -----------------
-    # Validate Command
-    # -----------------
 
     if cmd not in COMMANDS:
         return None, False
@@ -187,10 +206,7 @@ def handle_command(message, sender):
 
     now = time.time()
 
-    # -----------------
-    # Command Cooldown
-    # -----------------
-
+    # Command cooldown
     user_data = USER_LAST_COMMAND.get(sender, {})
     last_used = user_data.get(cmd, 0)
 
@@ -198,10 +214,7 @@ def handle_command(message, sender):
         remaining = int(entry["cooldown"] - (now - last_used))
         return f"Command cooldown. Try again in {remaining}s.", True
 
-    # -----------------
-    # Global Cooldown (Only If Switching Commands)
-    # -----------------
-
+    # Global cooldown only when switching commands
     previous_command = user_data.get("last_command")
 
     if previous_command and previous_command != cmd:
@@ -210,10 +223,6 @@ def handle_command(message, sender):
         if now - global_last < GLOBAL_COOLDOWN_SECONDS:
             remaining = int(GLOBAL_COOLDOWN_SECONDS - (now - global_last))
             return f"Global cooldown. Try again in {remaining}s.", True
-
-    # -----------------
-    # Execute
-    # -----------------
 
     try:
         result = entry["func"](args + [sender])
