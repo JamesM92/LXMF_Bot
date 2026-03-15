@@ -134,6 +134,7 @@ def help_menu(page=1):
     output.append("• help <page>")
     output.append("• help <category>")
 
+    output.append("\n\nhttps://github.com/JamesM92/LXMF_Bot")
     return "\n".join(output), True
 
 
