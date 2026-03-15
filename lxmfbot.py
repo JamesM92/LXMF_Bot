@@ -59,7 +59,7 @@ class LXMFBot:
         self.router.register_delivery_callback(self._message_received)
 
         # -------------------------
-        # Load Commands + Plugins HERE
+        # Load Commands & Plugins
         # -------------------------
 
         commands.set_bot(self)
@@ -75,7 +75,7 @@ class LXMFBot:
         print("🌐 Community Mesh Node Online")
 
     # -------------------------
-    # State Handling
+    # State
     # -------------------------
 
     def _load_state(self):
@@ -114,7 +114,7 @@ class LXMFBot:
         def reply(msg):
             self.send(sender, msg)
 
-        # Rate limit
+        # Network rate limit
         self.state["network_rate"] = [
             t for t in self.state["network_rate"]
             if now - t < 60
@@ -135,8 +135,8 @@ class LXMFBot:
 
         response, _ = commands.handle_command(content, sender)
 
-        if response:
-            reply(response)
+        if response is not None:
+            reply(str(response))
 
         self._log(sender, content)
         self._save_state()
@@ -156,10 +156,13 @@ class LXMFBot:
         stats["per_command"][cmd] += 1
 
     # -------------------------
-    # Sending
+    # Sending (FIXED LXMF SAFE)
     # -------------------------
 
     def send(self, destination, message):
+
+        # 🔒 Ensure message is ALWAYS a string
+        message = str(message)
 
         try:
             hash_bytes = bytes.fromhex(destination)
