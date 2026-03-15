@@ -46,7 +46,6 @@ def register(name, desc, category="general", admin=False, cooldown=60, aliases=N
 
     def wrapper(func):
 
-        # Store canonical command
         COMMANDS[name] = {
             "func": func,
             "desc": desc,
@@ -55,9 +54,8 @@ def register(name, desc, category="general", admin=False, cooldown=60, aliases=N
             "cooldown": cooldown
         }
 
-        # Map aliases → canonical name
         for alias in aliases:
-            COMMANDS[alias] = name
+            COMMANDS[alias] = name  # alias → canonical
 
         return func
 
@@ -80,27 +78,7 @@ def is_admin(sender):
 
 
 # -------------------------
-# Admin Login
-# -------------------------
-
-def admin_login(sender, password):
-
-    now = time.time()
-
-    if LOGIN_COOLDOWN.get(sender, 0) > now:
-        return False, "Login cooldown active."
-
-    LOGIN_COOLDOWN[sender] = now + 30
-
-    if hashlib.sha256(password.encode()).hexdigest() == ADMIN_PASSWORD_HASH:
-        ACTIVE_ADMINS[sender] = now + 1800
-        return True, "Admin authenticated."
-
-    return False, "Invalid password."
-
-
-# -------------------------
-# Help Menu (Paginated Categories)
+# Help Menu (Paginated)
 # -------------------------
 
 def help_menu(page=1):
@@ -108,7 +86,7 @@ def help_menu(page=1):
     grouped = {}
 
     for cmd, entry in COMMANDS.items():
-        if isinstance(entry, dict):  # ignore aliases
+        if isinstance(entry, dict):
             category = entry.get("category", "general")
             grouped.setdefault(category, []).append((cmd, entry))
 
@@ -129,16 +107,14 @@ def help_menu(page=1):
 
     output.append("\n\nUse:")
     output.append("• help")
-    output.append("• help <page number>")
-    output.append("• help <category name>")
-
-    output.append("\n\nhttps://github.com/JamesM92/LXMF_Bot")
+    output.append("• help <page>")
+    output.append("• help <category>")
 
     return "\n".join(output), True
 
 
 # -------------------------
-# Category Help View
+# Category Help
 # -------------------------
 
 def category_help(category_name):
@@ -165,7 +141,7 @@ def category_help(category_name):
 
 
 # -------------------------
-# Handle Commands
+# Main Command Handler
 # -------------------------
 
 def handle_command(message, sender):
@@ -178,13 +154,13 @@ def handle_command(message, sender):
     raw_cmd = parts[0].lower()
     args = parts[1:]
 
-    # Resolve alias → canonical command
+    # Resolve alias
     cmd = raw_cmd
     if cmd in COMMANDS and isinstance(COMMANDS[cmd], str):
         cmd = COMMANDS[cmd]
 
     # -----------------
-    # HELP HANDLING
+    # HELP
     # -----------------
 
     if cmd == "help":
@@ -223,7 +199,7 @@ def handle_command(message, sender):
         return f"Command cooldown. Try again in {remaining}s.", True
 
     # -----------------
-    # Global Cooldown (Only When Switching Commands)
+    # Global Cooldown (Only If Switching Commands)
     # -----------------
 
     previous_command = user_data.get("last_command")
@@ -236,7 +212,7 @@ def handle_command(message, sender):
             return f"Global cooldown. Try again in {remaining}s.", True
 
     # -----------------
-    # Execute Command
+    # Execute
     # -----------------
 
     try:
