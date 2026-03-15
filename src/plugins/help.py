@@ -1,7 +1,6 @@
 import math
 from commands import register, get_commands_snapshot
 
-
 PAGE_SIZE = 5
 
 
@@ -23,44 +22,6 @@ def build_category_view(commands):
     return "\n".join(output)
 
 
-def build_category_page(commands, category):
-
-    filtered = [
-        (name, data)
-        for name, data in commands.items()
-        if data["category"].lower() == category.lower()
-    ]
-
-    if not filtered:
-        return f"No commands in '{category}'."
-
-    total_pages = math.ceil(len(filtered) / PAGE_SIZE)
-
-    pages = []
-
-    for page in range(total_pages):
-
-        start = page * PAGE_SIZE
-        end = start + PAGE_SIZE
-
-        chunk = filtered[start:end]
-
-        lines = [
-            f"📂 {category}",
-            f"Page {page+1}/{total_pages}\n"
-        ]
-
-        for name, data in chunk:
-            admin_flag = " (admin)" if data["admin"] else ""
-            lines.append(
-                f"• {name}{admin_flag} - {data['desc']}"
-            )
-
-        pages.append("\n".join(lines))
-
-    return pages[0]
-
-
 @register(
     "help",
     "Show help menu",
@@ -75,4 +36,29 @@ def help_cmd(args):
     if not args:
         return build_category_view(commands)
 
-    return build_category_page(commands, args[0])
+    category = args[0]
+
+    filtered = [
+        (name, data)
+        for name, data in commands.items()
+        if data["category"].lower() == category.lower()
+    ]
+
+    if not filtered:
+        return f"No commands in '{category}'."
+
+    total_pages = math.ceil(len(filtered) / PAGE_SIZE)
+
+    lines = [
+        f"📂 {category}",
+        f"Total Pages: {total_pages}\n"
+    ]
+
+    for name, data in filtered[:PAGE_SIZE]:
+
+        admin_flag = " (admin)" if data["admin"] else ""
+        lines.append(
+            f"• {name}{admin_flag} - {data['desc']}"
+        )
+
+    return "\n".join(lines)
