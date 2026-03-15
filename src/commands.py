@@ -31,7 +31,6 @@ def register(name, desc, category="general", admin=False, cooldown=60, aliases=N
             "cooldown": cooldown
         }
 
-        # aliases point to main command
         for alias in aliases:
             COMMANDS[alias] = name
 
@@ -85,7 +84,7 @@ def admin_login(sender, password):
 
 
 # =====================================================
-# Plugin Loader (Hot Reload)
+# Plugin Hot Reload
 # =====================================================
 
 PLUGIN_DIR = os.path.join(os.path.dirname(__file__), "plugins")
@@ -135,7 +134,7 @@ def load_plugins():
 
 
 # =====================================================
-# Command Handler (NO COOLDOWN HERE)
+# Command Execution (NO COOLDOWN HERE)
 # =====================================================
 
 def handle_command(message, sender):
@@ -158,7 +157,7 @@ def handle_command(message, sender):
         cmd = entry
         entry = COMMANDS[cmd]
 
-    # Admin permission check only
+    # Permission check only
     if entry["admin"] and not is_admin(sender):
         return "Admin only.", True
 
