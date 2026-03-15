@@ -1,7 +1,6 @@
-from commands import register, reload_plugins, is_admin, admin_login
+from commands import register, reload_plugins, admin_login
 
-
-@register("admin", "Authenticate as admin (admin PASSWORD)")
+@register("admin", "Authenticate admin session", "admin")
 def admin_auth(args):
 
     if len(args) < 2:
@@ -15,24 +14,8 @@ def admin_auth(args):
     return message
 
 
-@register("adminstatus", "Check admin session status")
-def admin_status(args):
-
-    sender = args[-1]
-
-    if is_admin(sender):
-        return "Admin session active."
-
-    return "You are not authenticated."
-
-
-@register("reload", "Reload plugins (admin)")
+@register("reload", "Reload plugins", "admin", admin=True)
 def reload_cmd(args):
-
-    sender = args[-1]
-
-    if not is_admin(sender):
-        return "Admin only command."
 
     reload_plugins()
 
