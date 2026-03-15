@@ -1,9 +1,10 @@
 import importlib
 import os
-import hashlib
 import time
+import hashlib
 
 COMMANDS = {}
+BOT_INSTANCE = None
 
 ADMIN_ADDRESSES = {"PUT_LXMF_ADDRESS_HERE"}
 ADMIN_PASSWORD_HASH = hashlib.sha256("changeme".encode()).hexdigest()
@@ -12,19 +13,22 @@ ACTIVE_ADMINS = {}
 LOGIN_COOLDOWN = {}
 
 
-class Command:
-    def __init__(self, name, func, desc, category="general", admin=False):
-        self.name = name
-        self.func = func
-        self.desc = desc
-        self.category = category
-        self.admin = admin
+def set_bot(bot):
+    global BOT_INSTANCE
+    BOT_INSTANCE = bot
 
 
 def register(name, desc, category="general", admin=False):
+
     def wrapper(func):
-        COMMANDS[name] = Command(name, func, desc, category, admin)
+        COMMANDS[name] = {
+            "func": func,
+            "desc": desc,
+            "category": category,
+            "admin": admin
+        }
         return func
+
     return wrapper
 
 
@@ -49,6 +53,7 @@ def admin_login(sender, password):
     LOGIN_COOLDOWN[sender] = now + 30
 
     if hashlib.sha256(password.encode()).hexdigest() == ADMIN_PASSWORD_HASH:
+
         ACTIVE_ADMINS[sender] = now + 1800
         return True, "Admin authenticated."
 
@@ -65,17 +70,18 @@ def handle_command(message, sender):
     cmd = parts[0].lower()
     args = parts[1:]
 
-    if cmd in COMMANDS:
+    if cmd not in COMMANDS:
+        return help_menu(), False
 
-        if COMMANDS[cmd].admin and not is_admin(sender):
-            return "Admin only.", True
+    entry = COMMANDS[cmd]
 
-        try:
-            return COMMANDS[cmd].func(args + [sender]), True
-        except:
-            return "Command error.", True
+    if entry["admin"] and not is_admin(sender):
+        return "Admin only.", True
 
-    return help_menu(), False
+    try:
+        return entry["func"](args + [sender]), True
+    except:
+        return "Command error.", True
 
 
 def help_menu():
@@ -83,7 +89,7 @@ def help_menu():
     out = ["Commands:\n"]
 
     for cmd in sorted(COMMANDS):
-        out.append(f"{cmd} - {COMMANDS[cmd].desc}")
+        out.append(f"{cmd} - {COMMANDS[cmd]['desc']}")
 
     return "\n".join(out)
 
