@@ -67,10 +67,7 @@ class LXMFBot:
 
     def _message_received(self, message):
 
-        sender = RNS.hexrep(
-            message.source_hash,
-            delimit=False
-        )
+        sender = RNS.hexrep(message.source_hash, delimit=False)
 
         content = message.content.decode("utf-8").strip()
 
@@ -79,33 +76,29 @@ class LXMFBot:
 
         cmd_name = content.split()[0].lower()
 
-        # Run command
-        response, handled = commands.handle_command(
-            content, sender
-        )
+        response, handled = commands.handle_command(content, sender)
 
         if not handled:
             self.send(sender, "❌ Unrecognized command.")
             return
 
-        # =================================================
-        # ADMIN BYPASS (MUST COME BEFORE COOLDOWN)
-        # =================================================
-
         entry = commands.COMMANDS.get(cmd_name)
-
         if isinstance(entry, str):
             entry = commands.COMMANDS.get(entry)
+
+        # ===============================
+        # ADMIN BYPASS (FIRST)
+        # ===============================
 
         if entry and entry.get("admin") and commands.is_admin(sender):
 
             self._update_stats(sender, cmd_name)
             self.send(sender, str(response))
-            return  # 🚀 skip cooldown entirely
+            return
 
-        # =================================================
-        # NORMAL COOLDOWN LOGIC
-        # =================================================
+        # ===============================
+        # COOLDOWN CHECK
+        # ===============================
 
         if not self._check_cooldown(sender, cmd_name, entry):
             return
@@ -114,7 +107,7 @@ class LXMFBot:
         self.send(sender, str(response))
 
     # =====================================================
-    # Cooldown Logic
+    # Cooldown Logic (Correct Behavior)
     # =====================================================
 
     def _check_cooldown(self, sender, cmd, entry):
@@ -126,10 +119,9 @@ class LXMFBot:
 
         user_data = self.cooldowns[sender]
 
-        command_cooldown = 60
-        if entry:
-            command_cooldown = entry.get("cooldown", 60)
+        command_cooldown = entry.get("cooldown", 60) if entry else 60
 
+        # First time using command
         if cmd not in user_data:
             effective = min(self.GLOBAL_COOLDOWN, command_cooldown)
         else:
@@ -155,11 +147,8 @@ class LXMFBot:
         stats = self.state["stats"]
 
         stats["total"] += 1
-        stats["per_user"][sender] = \
-            stats["per_user"].get(sender, 0) + 1
-
-        stats["per_command"][cmd] = \
-            stats["per_command"].get(cmd, 0) + 1
+        stats["per_user"][sender] = stats["per_user"].get(sender, 0) + 1
+        stats["per_command"][cmd] = stats["per_command"].get(cmd, 0) + 1
 
     # =====================================================
     # Send
