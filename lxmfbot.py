@@ -77,7 +77,7 @@ class LXMFBot:
             return
 
         # -------------------------
-        # Per-Command Cooldown
+        # Global + Per-Command Cooldown
         # -------------------------
 
         cmd = content.split()[0].lower() if content else ""
@@ -88,31 +88,44 @@ class LXMFBot:
         if not command_entry:
             return
 
-        cooldown = command_entry.get("cooldown", 60)
         now = time.time()
 
+        GLOBAL_COOLDOWN = 60
+        command_cooldown = command_entry.get("cooldown", 60)
+
+        effective_cooldown = max(GLOBAL_COOLDOWN, command_cooldown)
+
         if sender not in self.cooldown_data:
-            self.cooldown_data[sender] = {"commands": {}, "warnings": {}}
+            self.cooldown_data[sender] = {
+                "last_command_time": 0,
+                "commands": {},
+                "warnings": {}
+            }
 
         user_data = self.cooldown_data[sender]
 
-        last_used = user_data["commands"].get(cmd, 0)
+        last_used_global = user_data["last_command_time"]
+        last_used_cmd = user_data["commands"].get(cmd, 0)
 
-        if now - last_used < cooldown:
+        last_used = max(last_used_global, last_used_cmd)
+
+        if now - last_used < effective_cooldown:
 
             if not user_data["warnings"].get(cmd, False):
 
-                remaining = int(cooldown - (now - last_used))
-                reply(f"⏳ Command on cooldown. Try again in {remaining}s.")
+                remaining = int(effective_cooldown - (now - last_used))
+                reply(f"⏳ Please wait {remaining}s before using commands.")
                 user_data["warnings"][cmd] = True
 
             return
 
-        # Reset warning + update timestamp
+        # Passed cooldown
         user_data["commands"][cmd] = now
+        user_data["last_command_time"] = now
         user_data["warnings"][cmd] = False
 
-        # Execute command
+        self.cooldown_data[sender] = user_data
+
         response, _ = commands.handle_command(content, sender)
 
         if response is not None:
