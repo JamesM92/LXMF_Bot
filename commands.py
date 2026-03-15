@@ -18,18 +18,10 @@ ACTIVE_ADMINS = {}
 LOGIN_COOLDOWN = {}
 
 
-# -------------------------
-# Bot Reference
-# -------------------------
-
 def set_bot(bot):
     global BOT_INSTANCE
     BOT_INSTANCE = bot
 
-
-# -------------------------
-# Register Commands
-# -------------------------
 
 def register(name, desc, category="general", admin=False):
 
@@ -45,10 +37,6 @@ def register(name, desc, category="general", admin=False):
     return wrapper
 
 
-# -------------------------
-# Admin Check
-# -------------------------
-
 def is_admin(sender):
 
     if sender in ADMIN_ADDRESSES:
@@ -59,10 +47,6 @@ def is_admin(sender):
 
     return False
 
-
-# -------------------------
-# Admin Login
-# -------------------------
 
 def admin_login(sender, password):
 
@@ -79,10 +63,6 @@ def admin_login(sender, password):
 
     return False, "Invalid password."
 
-
-# -------------------------
-# Handle Commands
-# -------------------------
 
 def handle_command(message, sender):
 
@@ -103,15 +83,10 @@ def handle_command(message, sender):
         return "Admin only.", True
 
     try:
-        result = entry["func"](args + [sender])
-        return result, True
+        return entry["func"](args + [sender]), True
     except Exception as e:
         return f"Command error: {repr(e)}", True
 
-
-# -------------------------
-# Help Menu
-# -------------------------
 
 def help_menu():
 
@@ -122,10 +97,6 @@ def help_menu():
 
     return "\n".join(out)
 
-
-# -------------------------
-# Plugin Loader
-# -------------------------
 
 def load_plugins():
 
