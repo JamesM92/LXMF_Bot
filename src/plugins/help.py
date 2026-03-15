@@ -1,15 +1,19 @@
 import math
-from commands import register, get_commands_snapshot
+from commands import register, COMMANDS
 
 PAGE_SIZE = 5
 
 
-def build_categories(commands):
+def build_categories():
 
     grouped = {}
 
-    for name, data in commands.items():
-        grouped.setdefault(data["category"], []).append(name)
+    for name, entry in COMMANDS.items():
+
+        if not isinstance(entry, dict):
+            continue
+
+        grouped.setdefault(entry["category"], []).append(name)
 
     lines = ["📖 COMMAND CATEGORIES\n"]
 
@@ -29,26 +33,28 @@ def build_categories(commands):
 )
 def help_cmd(args):
 
-    commands = get_commands_snapshot()
-
     if not args:
-        return build_categories(commands)
+        return build_categories()
 
     category = args[0].lower()
 
-    filtered = [
-        (name, data)
-        for name, data in commands.items()
-        if data["category"].lower() == category
-    ]
+    filtered = []
+
+    for name, entry in COMMANDS.items():
+
+        if not isinstance(entry, dict):
+            continue
+
+        if entry["category"].lower() == category:
+            filtered.append((name, entry))
 
     if not filtered:
         return f"No commands in '{category}'."
 
     lines = [f"📂 {category}\n"]
 
-    for name, data in filtered[:PAGE_SIZE]:
-        admin_flag = " (admin)" if data["admin"] else ""
-        lines.append(f"• {name}{admin_flag} - {data['desc']}")
+    for name, entry in filtered[:5]:
+        admin_flag = " (admin)" if entry["admin"] else ""
+        lines.append(f"• {name}{admin_flag} - {entry['desc']}")
 
     return "\n".join(lines)
