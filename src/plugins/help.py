@@ -21,6 +21,8 @@ def build_categories():
         lines.append(f"📦 {category}")
 
     lines.append("\nUse: help <category>")
+
+    lines.append("\n\nhttps://github.com/JamesM92/LXMF_Bot")
     return "\n".join(lines)
 
 
