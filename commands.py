@@ -1,47 +1,31 @@
-import os
 import importlib
-import time
+import os
 import hashlib
+import time
 
 COMMANDS = {}
-PLUGINS = {}
 
-# admin config
-ADMIN_ADDRESSES = {"PUT_ADMIN_LXMF_ADDRESS"}
-ADMIN_PASSWORD_HASH = "PUT_HASH"
-
-ADMIN_SESSION_DURATION = 1800
-LOGIN_COOLDOWN = 30
+ADMIN_ADDRESSES = {"PUT_LXMF_ADDRESS_HERE"}
+ADMIN_PASSWORD_HASH = hashlib.sha256("changeme".encode()).hexdigest()
 
 ACTIVE_ADMINS = {}
-LOGIN_ATTEMPTS = {}
+LOGIN_COOLDOWN = {}
 
 
 class Command:
-
-    def __init__(self, name, function, description, category="general", admin=False):
-
+    def __init__(self, name, func, desc, category="general", admin=False):
         self.name = name
-        self.function = function
-        self.description = description
+        self.func = func
+        self.desc = desc
         self.category = category
         self.admin = admin
 
 
-def register(name, description, category="general", admin=False):
-
+def register(name, desc, category="general", admin=False):
     def wrapper(func):
-
-        COMMANDS[name] = Command(name, func, description, category, admin)
-
+        COMMANDS[name] = Command(name, func, desc, category, admin)
         return func
-
     return wrapper
-
-
-def hash_password(password):
-
-    return hashlib.sha256(password.encode()).hexdigest()
 
 
 def is_admin(sender):
@@ -49,14 +33,8 @@ def is_admin(sender):
     if sender in ADMIN_ADDRESSES:
         return True
 
-    if sender in ACTIVE_ADMINS:
-
-        expire = ACTIVE_ADMINS[sender]
-
-        if time.time() < expire:
-            return True
-
-        del ACTIVE_ADMINS[sender]
+    if sender in ACTIVE_ADMINS and ACTIVE_ADMINS[sender] > time.time():
+        return True
 
     return False
 
@@ -65,72 +43,19 @@ def admin_login(sender, password):
 
     now = time.time()
 
-    last_attempt = LOGIN_ATTEMPTS.get(sender, 0)
+    if LOGIN_COOLDOWN.get(sender, 0) > now:
+        return False, "Login cooldown active."
 
-    if now - last_attempt < LOGIN_COOLDOWN:
-        return False, "Login temporarily blocked."
+    LOGIN_COOLDOWN[sender] = now + 30
 
-    LOGIN_ATTEMPTS[sender] = now
-
-    if hash_password(password) == ADMIN_PASSWORD_HASH:
-
-        ACTIVE_ADMINS[sender] = now + ADMIN_SESSION_DURATION
-
-        return True, "Admin authentication successful."
+    if hashlib.sha256(password.encode()).hexdigest() == ADMIN_PASSWORD_HASH:
+        ACTIVE_ADMINS[sender] = now + 1800
+        return True, "Admin authenticated."
 
     return False, "Invalid password."
 
 
-def load_plugins():
-
-    plugin_dir = "plugins"
-
-    if not os.path.isdir(plugin_dir):
-        return
-
-    for file in os.listdir(plugin_dir):
-
-        if file.endswith(".py") and file != "__init__.py":
-
-            module = file[:-3]
-
-            module_name = f"plugins.{module}"
-
-            importlib.import_module(module_name)
-
-            PLUGINS[module] = True
-
-
-def reload_plugins():
-
-    global COMMANDS
-
-    COMMANDS.clear()
-
-    for module in list(importlib.sys.modules.keys()):
-
-        if module.startswith("plugins."):
-
-            del importlib.sys.modules[module]
-
-    load_plugins()
-
-
-def enable_plugin(name):
-
-    if name in PLUGINS:
-        PLUGINS[name] = True
-        reload_plugins()
-
-
-def disable_plugin(name):
-
-    if name in PLUGINS:
-        PLUGINS[name] = False
-        reload_plugins()
-
-
-def handle_command(message, sender=None):
+def handle_command(message, sender):
 
     parts = message.strip().split()
 
@@ -140,42 +65,34 @@ def handle_command(message, sender=None):
     cmd = parts[0].lower()
     args = parts[1:]
 
-    if sender:
-        args.append(sender)
+    if cmd in COMMANDS:
 
-    if cmd not in COMMANDS:
-        return help_menu(), False
+        if COMMANDS[cmd].admin and not is_admin(sender):
+            return "Admin only.", True
 
-    command = COMMANDS[cmd]
+        try:
+            return COMMANDS[cmd].func(args + [sender]), True
+        except:
+            return "Command error.", True
 
-    if command.admin and not is_admin(sender):
-        return "Admin only command.", True
-
-    try:
-        return command.function(args), True
-
-    except Exception:
-        return "Command error.", True
+    return help_menu(), False
 
 
 def help_menu():
 
-    categories = {}
+    out = ["Commands:\n"]
 
-    for cmd in COMMANDS.values():
+    for cmd in sorted(COMMANDS):
+        out.append(f"{cmd} - {COMMANDS[cmd].desc}")
 
-        categories.setdefault(cmd.category, []).append(cmd)
+    return "\n".join(out)
 
-    output = ["Available Commands:\n"]
 
-    for cat in sorted(categories):
+def load_plugins():
 
-        output.append(f"\n[{cat}]")
-
-        for c in sorted(categories[cat], key=lambda x: x.name):
-            output.append(f"{c.name} - {c.description}")
-
-    return "\n".join(output)
+    for file in os.listdir("plugins"):
+        if file.endswith(".py") and file != "__init__.py":
+            importlib.import_module(f"plugins.{file[:-3]}")
 
 
 load_plugins()
