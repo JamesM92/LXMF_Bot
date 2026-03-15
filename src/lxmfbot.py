@@ -44,7 +44,6 @@ class LXMFBot:
             self._message_received
         )
 
-        # Bot state
         self.state = {
             "lockdown": False,
             "stats": {
@@ -109,7 +108,7 @@ class LXMFBot:
                 reply(response)
 
         else:
-            reply(commands.help_menu())
+            reply("Unknown command. Use help.")
 
     # -------------------------
 
