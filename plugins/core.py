@@ -1,11 +1,9 @@
-from commands import register
+from commands import register, help_menu
 
-@register("help", "Show help menu", "core")
+@register("help", "Show help", "core")
 def help_cmd(args):
-    from commands import help_menu
     return help_menu()
 
-@register("?", "Show help menu", "core")
+@register("?", "Show help", "core")
 def help_short(args):
-    from commands import help_menu
     return help_menu()
