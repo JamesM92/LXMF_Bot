@@ -65,7 +65,7 @@ class LXMFBot:
         print("🌐 Community Mesh Node Online")
 
     # -------------------------
-    # Lockdown Toggle
+    # Lockdown
     # -------------------------
 
     def toggle_lockdown(self):
@@ -79,6 +79,8 @@ class LXMFBot:
 
     def _message_received(self, message):
 
+        commands.scan_plugins()
+
         sender = RNS.hexrep(
             message.source_hash,
             delimit=False
@@ -89,7 +91,6 @@ class LXMFBot:
         if not content:
             return
 
-        # Optional: Lockdown enforcement
         if self.state["lockdown"] and not commands.is_admin(sender):
             return
 
@@ -103,10 +104,7 @@ class LXMFBot:
 
         if handled:
 
-            # -------------------------
-            # Update Stats
-            # -------------------------
-
+            # Stats tracking
             stats = self.state["stats"]
             stats["total"] += 1
 
@@ -122,10 +120,7 @@ class LXMFBot:
                 reply(response)
 
         else:
-            reply(
-                "❌ Unrecognized command.\n\n"
-                + commands.help_menu()[0]
-            )
+            reply("❌ Unrecognized command.")
 
     # -------------------------
     # Send
@@ -168,6 +163,9 @@ class LXMFBot:
     def run(self):
 
         while True:
+
+            commands.scan_plugins()
+
             while not self.queue.empty():
                 lxm = self.queue.get()
                 self.router.handle_outbound(lxm)
