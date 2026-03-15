@@ -17,18 +17,13 @@ class LXMFBot:
 
         self.name = name
         self.queue = Queue()
-
-        # Cooldown storage
         self.cooldown_data = {}
 
         dirs = AppDirs("LXMFBot", "community")
         self.base_path = os.path.join(dirs.user_data_dir, name)
         os.makedirs(self.base_path, exist_ok=True)
 
-        # -------------------------
-        # Reticulum Init
-        # -------------------------
-
+        # Reticulum
         self.reticulum = RNS.Reticulum(loglevel=RNS.LOG_INFO)
 
         try:
@@ -36,10 +31,7 @@ class LXMFBot:
         except Exception:
             pass
 
-        # -------------------------
         # Identity
-        # -------------------------
-
         idfile = os.path.join(self.base_path, "identity")
 
         if not os.path.isfile(idfile):
@@ -60,47 +52,10 @@ class LXMFBot:
 
         self.router.register_delivery_callback(self._message_received)
 
-        # -------------------------
-        # Load Commands + Plugins
-        # -------------------------
-
         commands.set_bot(self)
         commands.load_plugins()
 
-        # -------------------------
-        # Persistent State
-        # -------------------------
-
-        self.state_file = os.path.join(self.base_path, "state.json")
-        self._load_state()
-
         print("🌐 Community Mesh Node Online")
-
-    # -------------------------
-    # State Handling
-    # -------------------------
-
-    def _load_state(self):
-
-        self.state = {
-            "lockdown": False,
-            "command_log": [],
-            "stats": {
-                "total": 0,
-                "per_user": {},
-                "per_command": {}
-            }
-        }
-
-        try:
-            with open(self.state_file, "r") as f:
-                self.state = json.load(f)
-        except:
-            pass
-
-    def _save_state(self):
-        with open(self.state_file, "w") as f:
-            json.dump(self.state, f)
 
     # -------------------------
     # Message Handling
@@ -110,106 +65,58 @@ class LXMFBot:
 
         sender = RNS.hexrep(message.source_hash, delimit=False)
         content = message.content.decode("utf-8").strip()
-        now = time.time()
 
         def reply(msg):
             self.send(sender, msg)
 
-        # -------------------------
-        # Lockdown
-        # -------------------------
-
-        if self.state.get("lockdown", False):
-            if not commands.is_admin(sender):
-                reply("🔒 Node is in LOCKDOWN mode.")
-                return
-
-        # -------------------------
-        # Admin Bypass Cooldowns
-        # -------------------------
-
+        # Admin bypass cooldowns
         if commands.is_admin(sender):
-
             response, _ = commands.handle_command(content, sender)
-
             if response is not None:
                 reply(str(response))
-
-            self._log(sender, content)
-            self._save_state()
             return
 
         # -------------------------
-        # Cooldown System (With One-Time Warning)
+        # Per-Command Cooldown
         # -------------------------
 
         cmd = content.split()[0].lower() if content else ""
+        if not cmd:
+            return
+
+        command_entry = commands.COMMANDS.get(cmd)
+        if not command_entry:
+            return
+
+        cooldown = command_entry.get("cooldown", 60)
+        now = time.time()
 
         if sender not in self.cooldown_data:
-            self.cooldown_data[sender] = {
-                "last_command_time": 0,
-                "commands": {},
-                "warnings": {}
-            }
+            self.cooldown_data[sender] = {"commands": {}, "warnings": {}}
 
         user_data = self.cooldown_data[sender]
 
-        # Same command cooldown (5 min)
-        last_cmd_time = user_data["commands"].get(cmd, 0)
-        same_blocked = (now - last_cmd_time < 300)
+        last_used = user_data["commands"].get(cmd, 0)
 
-        # Different command cooldown (1 min)
-        different_blocked = (now - user_data["last_command_time"] < 60)
+        if now - last_used < cooldown:
 
-        if same_blocked or different_blocked:
+            if not user_data["warnings"].get(cmd, False):
 
-            warning_type = "same" if same_blocked else "different"
-
-            if not user_data["warnings"].get(cmd, {}).get(warning_type, False):
-
-                if same_blocked:
-                    reply("⏳ That command is on cooldown (5 minutes).")
-                else:
-                    reply("⏳ Please wait 1 minute between commands.")
-
-                user_data["warnings"].setdefault(cmd, {})
-                user_data["warnings"][cmd][warning_type] = True
+                remaining = int(cooldown - (now - last_used))
+                reply(f"⏳ Command on cooldown. Try again in {remaining}s.")
+                user_data["warnings"][cmd] = True
 
             return
 
-        # -------------------------
-        # Cooldown Passed
-        # -------------------------
-
+        # Reset warning + update timestamp
         user_data["commands"][cmd] = now
-        user_data["last_command_time"] = now
-
-        user_data["warnings"].pop(cmd, None)
-
-        self.cooldown_data[sender] = user_data
+        user_data["warnings"][cmd] = False
 
         # Execute command
         response, _ = commands.handle_command(content, sender)
 
         if response is not None:
             reply(str(response))
-
-        self._log(sender, content)
-        self._save_state()
-
-    # -------------------------
-    # Logging
-    # -------------------------
-
-    def _log(self, sender, cmd):
-
-        stats = self.state["stats"]
-
-        stats["total"] += 1
-        stats["per_user"].setdefault(sender, 0)
-        stats["per_user"][sender] += 1
-        stats["per_command"].setdefault(cmd, 0)
-        stats["per_command"][cmd] += 1
 
     # -------------------------
     # LXMF Safe Send
