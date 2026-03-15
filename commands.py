@@ -79,6 +79,10 @@ def help_menu():
     return "\n".join(out)
 
 
+# -------------------------
+# Plugin Loader (CALLED FROM BOT)
+# -------------------------
+
 def load_plugins():
 
     plugin_path = os.path.join(os.path.dirname(__file__), "plugins")
