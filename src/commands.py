@@ -5,11 +5,12 @@ import time
 import hashlib
 
 # =====================================================
-# Core Registry
+# Registry
 # =====================================================
 
 COMMANDS = {}
 BOT_INSTANCE = None
+
 
 def register(name, desc, category="general", admin=False, cooldown=60, aliases=None):
 
@@ -40,29 +41,25 @@ def set_bot(bot):
 
 
 # =====================================================
-# Help System (Built-In)
+# Public API for Plugins (Help Uses This)
 # =====================================================
 
-def help_menu():
+def get_commands_snapshot():
 
-    grouped = {}
+    snapshot = {}
 
-    for cmd, entry in COMMANDS.items():
-        if isinstance(entry, dict):
-            grouped.setdefault(entry["category"], []).append(cmd)
+    for name, entry in COMMANDS.items():
 
-    output = ["📖 Available Commands:\n"]
+        if not isinstance(entry, dict):
+            continue
 
-    for category in sorted(grouped):
-        output.append(f"📦 {category.upper()}")
+        snapshot[name] = {
+            "desc": entry["desc"],
+            "category": entry.get("category", "general"),
+            "admin": entry.get("admin", False)
+        }
 
-        for cmd in sorted(grouped[category]):
-            entry = COMMANDS[cmd]
-            if isinstance(entry, dict):
-                admin_flag = " (admin)" if entry.get("admin") else ""
-                output.append(f"  • {cmd}{admin_flag} - {entry['desc']}")
-
-    return "\n".join(output)
+    return snapshot
 
 
 # =====================================================
@@ -107,7 +104,7 @@ def admin_login(sender, password):
 
 
 # =====================================================
-# Hot Reload Plugin System
+# Plugin Hot Reload
 # =====================================================
 
 PLUGIN_DIR = os.path.join(
@@ -115,8 +112,8 @@ PLUGIN_DIR = os.path.join(
     "plugins"
 )
 
-_loaded_modules = {}
-_last_mtimes = {}
+_loaded = {}
+_mtimes = {}
 
 SCAN_INTERVAL = 5
 _last_scan = 0
@@ -141,7 +138,7 @@ def scan_plugins(force=False):
         if f.endswith(".py") and f != "__init__.py"
     }
 
-    # Load or reload
+    # Load / Reload
     for file in current_files:
 
         module_name = f"plugins.{file[:-3]}"
@@ -155,27 +152,27 @@ def scan_plugins(force=False):
         if module_name not in sys.modules:
 
             importlib.import_module(module_name)
-            _loaded_modules[module_name] = True
-            _last_mtimes[module_name] = mtime
+            _loaded[module_name] = True
+            _mtimes[module_name] = mtime
             continue
 
-        if _last_mtimes.get(module_name, 0) < mtime:
+        if _mtimes.get(module_name, 0) < mtime:
 
             importlib.reload(sys.modules[module_name])
-            _last_mtimes[module_name] = mtime
+            _mtimes[module_name] = mtime
 
     # Remove deleted plugins
-    for module_name in list(_loaded_modules.keys()):
+    for module_name in list(_loaded.keys()):
 
-        file_name = module_name.split(".")[-1] + ".py"
+        filename = module_name.split(".")[-1] + ".py"
 
-        if file_name not in current_files:
+        if filename not in current_files:
 
             if module_name in sys.modules:
                 del sys.modules[module_name]
 
-            del _loaded_modules[module_name]
-            del _last_mtimes[module_name]
+            del _loaded[module_name]
+            del _mtimes[module_name]
 
 
 def load_plugins():
@@ -212,6 +209,11 @@ def handle_command(message, sender):
 
     try:
         result = entry["func"](args + [sender])
+
+        if isinstance(result, tuple):
+            return result
+
         return result, True
+
     except Exception as e:
         return f"Command error: {repr(e)}", True
