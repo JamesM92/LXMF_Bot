@@ -41,7 +41,7 @@ def set_bot(bot):
 
 
 # =====================================================
-# Public API for Plugins (Help Uses This)
+# Public API for Help Plugin
 # =====================================================
 
 def get_commands_snapshot():
@@ -138,7 +138,6 @@ def scan_plugins(force=False):
         if f.endswith(".py") and f != "__init__.py"
     }
 
-    # Load / Reload
     for file in current_files:
 
         module_name = f"plugins.{file[:-3]}"
@@ -161,7 +160,6 @@ def scan_plugins(force=False):
             importlib.reload(sys.modules[module_name])
             _mtimes[module_name] = mtime
 
-    # Remove deleted plugins
     for module_name in list(_loaded.keys()):
 
         filename = module_name.split(".")[-1] + ".py"
@@ -180,7 +178,7 @@ def load_plugins():
 
 
 # =====================================================
-# Command Dispatcher
+# Command Dispatcher (FIXED)
 # =====================================================
 
 def handle_command(message, sender):
@@ -208,7 +206,8 @@ def handle_command(message, sender):
         return "Admin only.", True
 
     try:
-        result = entry["func"](args + [sender])
+        # IMPORTANT: DO NOT pass sender to args
+        result = entry["func"](args)
 
         if isinstance(result, tuple):
             return result
