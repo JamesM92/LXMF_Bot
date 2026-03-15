@@ -44,9 +44,7 @@ class LXMFBot:
             self._message_received
         )
 
-        self.state = {
-            "cooldowns": {}
-        }
+        self.state = {"cooldowns": {}}
 
         commands.set_bot(self)
         commands.load_plugins()
@@ -73,8 +71,6 @@ class LXMFBot:
 
         def reply(msg):
             self.send(sender, str(msg))
-
-        # Admin bypass handled inside commands
 
         # =====================================================
         # COOLDOWN SYSTEM
@@ -104,7 +100,6 @@ class LXMFBot:
             if command_entry:
 
                 command_cooldown = command_entry.get("cooldown", 60)
-
                 is_first_use = not user_data["first_use"].get(cmd_name, False)
 
                 if is_first_use:
