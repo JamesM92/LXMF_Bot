@@ -7,9 +7,7 @@ start_time = time.time()
 def ping(args):
     return "pong"
 
-@register("weather", "Show temperature", "tools")
-def weather(args):
-    return "Current temperature: 22°C"
+
 
 @register("uptime", "Show bot uptime", "tools")
 def uptime(args):
