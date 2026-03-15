@@ -28,10 +28,13 @@ def set_bot(bot):
 
 
 # -------------------------
-# Register Command (WITH PER-COMMAND COOLDOWN)
+# Register Command
 # -------------------------
 
 def register(name, desc, category="general", admin=False, cooldown=60):
+    """
+    cooldown = per-command cooldown in seconds
+    """
 
     def wrapper(func):
         COMMANDS[name] = {
