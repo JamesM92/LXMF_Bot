@@ -1,11 +1,5 @@
-##############################
-
 from commands import register, admin_login, BOT_INSTANCE
 
-
-# -------------------------
-# Admin Login
-# -------------------------
 
 @register(
     "admin",
@@ -13,22 +7,17 @@ from commands import register, admin_login, BOT_INSTANCE
     category="admin",
     cooldown=30
 )
-def admin_cmd(args):
+def admin_cmd(args, sender):
 
-    if len(args) < 2:
+    if len(args) < 1:
         return "Usage: admin PASSWORD", True
 
     password = args[0]
-    sender = args[-1]
 
     success, msg = admin_login(sender, password)
 
     return msg, True
 
-
-# -------------------------
-# Lockdown Toggle (Admin Only)
-# -------------------------
 
 @register(
     "lockdown",
@@ -36,7 +25,7 @@ def admin_cmd(args):
     category="admin",
     admin=True
 )
-def lockdown(args):
+def lockdown(args, sender):
 
     bot = BOT_INSTANCE
 
@@ -51,17 +40,13 @@ def lockdown(args):
         return "🔓 Lockdown OFF", True
 
 
-# -------------------------
-# Stats Command (Admin Only)
-# -------------------------
-
 @register(
     "stats",
     "Show usage statistics",
     category="admin",
     admin=True
 )
-def stats(args):
+def stats(args, sender):
 
     bot = BOT_INSTANCE
 
