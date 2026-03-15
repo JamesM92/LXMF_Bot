@@ -1,17 +1,15 @@
-##############################
-
 import importlib
 import os
 import sys
 import time
 import hashlib
 
+# =====================================================
+# Core Registry
+# =====================================================
+
 COMMANDS = {}
 BOT_INSTANCE = None
-
-# =====================================================
-# Command Registration (MUST BE AT TOP)
-# =====================================================
 
 def register(name, desc, category="general", admin=False, cooldown=60, aliases=None):
 
@@ -36,89 +34,35 @@ def register(name, desc, category="general", admin=False, cooldown=60, aliases=N
     return wrapper
 
 
-# =====================================================
-# Bot Reference
-# =====================================================
-
 def set_bot(bot):
     global BOT_INSTANCE
     BOT_INSTANCE = bot
 
 
 # =====================================================
-# Plugin System (Hot Reload Safe)
+# Help System (Built-In)
 # =====================================================
 
-PLUGIN_DIR = os.path.join(
-    os.path.dirname(__file__),
-    "plugins"
-)
+def help_menu():
 
-PLUGIN_MODULES = {}
-PLUGIN_MTIMES = {}
+    grouped = {}
 
-PLUGIN_SCAN_INTERVAL = 5
-LAST_PLUGIN_SCAN = 0
+    for cmd, entry in COMMANDS.items():
+        if isinstance(entry, dict):
+            grouped.setdefault(entry["category"], []).append(cmd)
 
+    output = ["📖 Available Commands:\n"]
 
-def scan_plugins(force=False):
+    for category in sorted(grouped):
+        output.append(f"📦 {category.upper()}")
 
-    global LAST_PLUGIN_SCAN
+        for cmd in sorted(grouped[category]):
+            entry = COMMANDS[cmd]
+            if isinstance(entry, dict):
+                admin_flag = " (admin)" if entry.get("admin") else ""
+                output.append(f"  • {cmd}{admin_flag} - {entry['desc']}")
 
-    now = time.time()
-
-    if not force and (now - LAST_PLUGIN_SCAN) < PLUGIN_SCAN_INTERVAL:
-        return
-
-    LAST_PLUGIN_SCAN = now
-
-    if not os.path.isdir(PLUGIN_DIR):
-        return
-
-    current_files = {
-        f for f in os.listdir(PLUGIN_DIR)
-        if f.endswith(".py") and f != "__init__.py"
-    }
-
-    # Load or reload
-    for file in current_files:
-
-        module_name = f"plugins.{file[:-3]}"
-        path = os.path.join(PLUGIN_DIR, file)
-
-        try:
-            mtime = os.path.getmtime(path)
-        except FileNotFoundError:
-            continue
-
-        if module_name not in sys.modules:
-
-            importlib.import_module(module_name)
-            PLUGIN_MODULES[module_name] = True
-            PLUGIN_MTIMES[module_name] = mtime
-            continue
-
-        if PLUGIN_MTIMES.get(module_name, 0) < mtime:
-
-            importlib.reload(sys.modules[module_name])
-            PLUGIN_MTIMES[module_name] = mtime
-
-    # Remove deleted
-    for module_name in list(PLUGIN_MODULES.keys()):
-
-        file_name = module_name.split(".")[-1] + ".py"
-
-        if file_name not in current_files:
-
-            if module_name in sys.modules:
-                del sys.modules[module_name]
-
-            del PLUGIN_MODULES[module_name]
-            del PLUGIN_MTIMES[module_name]
-
-
-def load_plugins():
-    scan_plugins(force=True)
+    return "\n".join(output)
 
 
 # =====================================================
@@ -163,7 +107,83 @@ def admin_login(sender, password):
 
 
 # =====================================================
-# Command Handler
+# Hot Reload Plugin System
+# =====================================================
+
+PLUGIN_DIR = os.path.join(
+    os.path.dirname(__file__),
+    "plugins"
+)
+
+_loaded_modules = {}
+_last_mtimes = {}
+
+SCAN_INTERVAL = 5
+_last_scan = 0
+
+
+def scan_plugins(force=False):
+
+    global _last_scan
+
+    now = time.time()
+
+    if not force and (now - _last_scan) < SCAN_INTERVAL:
+        return
+
+    _last_scan = now
+
+    if not os.path.isdir(PLUGIN_DIR):
+        return
+
+    current_files = {
+        f for f in os.listdir(PLUGIN_DIR)
+        if f.endswith(".py") and f != "__init__.py"
+    }
+
+    # Load or reload
+    for file in current_files:
+
+        module_name = f"plugins.{file[:-3]}"
+        path = os.path.join(PLUGIN_DIR, file)
+
+        try:
+            mtime = os.path.getmtime(path)
+        except FileNotFoundError:
+            continue
+
+        if module_name not in sys.modules:
+
+            importlib.import_module(module_name)
+            _loaded_modules[module_name] = True
+            _last_mtimes[module_name] = mtime
+            continue
+
+        if _last_mtimes.get(module_name, 0) < mtime:
+
+            importlib.reload(sys.modules[module_name])
+            _last_mtimes[module_name] = mtime
+
+    # Remove deleted plugins
+    for module_name in list(_loaded_modules.keys()):
+
+        file_name = module_name.split(".")[-1] + ".py"
+
+        if file_name not in current_files:
+
+            if module_name in sys.modules:
+                del sys.modules[module_name]
+
+            del _loaded_modules[module_name]
+            del _last_mtimes[module_name]
+
+
+def load_plugins():
+    scan_plugins(force=True)
+
+
+# =====================================================
+# Command Dispatcher
 # =====================================================
 
 def handle_command(message, sender):
