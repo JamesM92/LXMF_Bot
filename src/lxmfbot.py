@@ -16,6 +16,15 @@ class LXMFBot:
         self.name = name
         self.queue = Queue()
 
+        # ✅ Global state dictionary (RESTORED)
+        self.state = {
+            "stats": {
+                "total": 0,
+                "per_user": {},
+                "per_command": {}
+            }
+        }
+
         dirs = AppDirs("LXMFBot", "community")
         self.base_path = os.path.join(dirs.user_data_dir, name)
         os.makedirs(self.base_path, exist_ok=True)
@@ -44,20 +53,16 @@ class LXMFBot:
             self._message_received
         )
 
-        self.state = {"cooldowns": {}}
-
         commands.set_bot(self)
         commands.load_plugins()
 
         print("🌐 Community Mesh Node Online")
 
     # =====================================================
-    # MESSAGE HANDLER
+    # Message Handling
     # =====================================================
 
     def _message_received(self, message):
-
-        commands.scan_plugins()
 
         sender = RNS.hexrep(
             message.source_hash,
@@ -69,82 +74,43 @@ class LXMFBot:
         if not content:
             return
 
-        def reply(msg):
-            self.send(sender, str(msg))
-
-        # =====================================================
-        # COOLDOWN SYSTEM
-        # =====================================================
-
-        if not commands.is_admin(sender):
-
-            GLOBAL_COOLDOWN = 60
-            parts = content.split()
-            cmd_name = parts[0].lower()
-            now = time.time()
-
-            if sender not in self.state["cooldowns"]:
-                self.state["cooldowns"][sender] = {
-                    "last_global": 0,
-                    "last_command": {},
-                    "first_use": {}
-                }
-
-            user_data = self.state["cooldowns"][sender]
-
-            command_entry = commands.COMMANDS.get(cmd_name)
-            if isinstance(command_entry, str):
-                cmd_name = command_entry
-                command_entry = commands.COMMANDS.get(cmd_name)
-
-            if command_entry:
-
-                command_cooldown = command_entry.get("cooldown", 60)
-                is_first_use = not user_data["first_use"].get(cmd_name, False)
-
-                if is_first_use:
-
-                    effective = (
-                        command_cooldown
-                        if command_cooldown < GLOBAL_COOLDOWN
-                        else GLOBAL_COOLDOWN
-                    )
-
-                    remaining = effective - (now - user_data["last_global"])
-
-                    if remaining > 0:
-                        reply(f"⏳ Please wait {int(remaining)}s.")
-                        return
-
-                    user_data["first_use"][cmd_name] = True
-
-                else:
-
-                    remaining = command_cooldown - (
-                        now - user_data["last_command"].get(cmd_name, 0)
-                    )
-
-                    if remaining > 0:
-                        reply(f"⏳ Please wait {int(remaining)}s.")
-                        return
-
-                user_data["last_global"] = now
-                user_data["last_command"][cmd_name] = now
-
-        # =====================================================
-        # EXECUTE COMMAND
-        # =====================================================
-
         response, handled = commands.handle_command(
-            content,
-            sender
+            content, sender
         )
 
         if handled and response is not None:
-            reply(response)
+
+            # ✅ Update stats only for successful commands
+            self._update_stats(sender, content)
+
+            self.send(sender, str(response))
+
+        elif not handled:
+            self.send(
+                sender,
+                "❌ Unrecognized command."
+            )
 
     # =====================================================
-    # SEND
+    # Stats Tracking
+    # =====================================================
+
+    def _update_stats(self, sender, content):
+
+        cmd = content.split()[0].lower()
+
+        stats = self.state["stats"]
+
+        stats["total"] += 1
+
+        stats["per_user"][sender] = \
+            stats["per_user"].get(sender, 0) + 1
+
+        stats["per_command"][cmd] = \
+            stats["per_command"].get(cmd, 0) + 1
+
+    # =====================================================
+    # Send
     # =====================================================
 
     def send(self, destination, message):
@@ -178,14 +144,12 @@ class LXMFBot:
         self.queue.put(lxm)
 
     # =====================================================
-    # RUN LOOP
+    # Run Loop
     # =====================================================
 
     def run(self):
 
         while True:
-
-            commands.scan_plugins()
 
             while not self.queue.empty():
                 lxm = self.queue.get()
