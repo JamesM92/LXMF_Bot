@@ -50,7 +50,6 @@ def register(name, desc, category="general", admin=False, cooldown=60, aliases=N
 
     def wrapper(func):
 
-        # Canonical command
         COMMANDS[name] = {
             "func": func,
             "desc": desc,
@@ -59,7 +58,6 @@ def register(name, desc, category="general", admin=False, cooldown=60, aliases=N
             "cooldown": cooldown
         }
 
-        # Aliases → canonical
         for alias in aliases:
             COMMANDS[alias] = name
 
@@ -84,7 +82,7 @@ def is_admin(sender):
 
 
 # -------------------------
-# Admin Login  (OPTION A FIX)
+# Admin Login
 # -------------------------
 
 def admin_login(sender, password):
@@ -104,7 +102,7 @@ def admin_login(sender, password):
 
 
 # -------------------------
-# Help Menu (Paginated)
+# Help Menu
 # -------------------------
 
 def help_menu(page=1):
@@ -131,7 +129,7 @@ def help_menu(page=1):
     for category in page_categories:
         output.append(f"📦 {category.upper()}")
 
-    output.append("\n\nUse:")
+    output.append("\nUse:")
     output.append("• help")
     output.append("• help <page>")
     output.append("• help <category>")
@@ -206,10 +204,10 @@ def handle_command(message, sender):
 
     now = time.time()
 
-    # Command cooldown
     user_data = USER_LAST_COMMAND.get(sender, {})
     last_used = user_data.get(cmd, 0)
 
+    # Per-command cooldown
     if now - last_used < entry["cooldown"]:
         remaining = int(entry["cooldown"] - (now - last_used))
         return f"Command cooldown. Try again in {remaining}s.", True
