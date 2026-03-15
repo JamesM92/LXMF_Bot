@@ -17,6 +17,8 @@ class LXMFBot:
 
         self.name = name
         self.queue = Queue()
+
+        # Cooldown storage
         self.cooldown_data = {}
 
         dirs = AppDirs("LXMFBot", "community")
@@ -24,7 +26,7 @@ class LXMFBot:
         os.makedirs(self.base_path, exist_ok=True)
 
         # -------------------------
-        # Reticulum Initialization
+        # Reticulum Init
         # -------------------------
 
         self.reticulum = RNS.Reticulum(loglevel=RNS.LOG_INFO)
@@ -59,14 +61,14 @@ class LXMFBot:
         self.router.register_delivery_callback(self._message_received)
 
         # -------------------------
-        # Load Commands & Plugins
+        # Load Commands
         # -------------------------
 
         commands.set_bot(self)
         commands.load_plugins()
 
         # -------------------------
-        # Persistent State
+        # State
         # -------------------------
 
         self.state_file = os.path.join(self.base_path, "state.json")
@@ -75,7 +77,7 @@ class LXMFBot:
         print("🌐 Community Mesh Node Online")
 
     # -------------------------
-    # State
+    # Persistent State
     # -------------------------
 
     def _load_state(self):
@@ -87,8 +89,7 @@ class LXMFBot:
                 "total": 0,
                 "per_user": {},
                 "per_command": {}
-            },
-            "network_rate": []
+            }
         }
 
         try:
@@ -114,25 +115,61 @@ class LXMFBot:
         def reply(msg):
             self.send(sender, msg)
 
-        # Network rate limit
-        self.state["network_rate"] = [
-            t for t in self.state["network_rate"]
-            if now - t < 60
-        ]
-
-        if len(self.state["network_rate"]) >= 30:
-            if not commands.is_admin(sender):
-                reply("Network busy.")
-                return
-
-        self.state["network_rate"].append(now)
-
+        # -------------------------
         # Lockdown
+        # -------------------------
+
         if self.state.get("lockdown", False):
             if not commands.is_admin(sender):
                 reply("🔒 Node is in LOCKDOWN mode.")
                 return
 
+        # -------------------------
+        # Admin Bypass Cooldowns
+        # -------------------------
+
+        if commands.is_admin(sender):
+
+            response, _ = commands.handle_command(content, sender)
+
+            if response is not None:
+                reply(str(response))
+
+            self._log(sender, content)
+            self._save_state()
+            return
+
+        # -------------------------
+        # Cooldown System
+        # -------------------------
+
+        cmd = content.split()[0].lower() if content else ""
+
+        if sender not in self.cooldown_data:
+            self.cooldown_data[sender] = {
+                "last_command_time": 0,
+                "commands": {}
+            }
+
+        user_data = self.cooldown_data[sender]
+
+        # Rule 1: Same command → 5 minutes
+        last_cmd_time = user_data["commands"].get(cmd, 0)
+        if now - last_cmd_time < 300:
+            reply("⏳ That command is on cooldown (5 minutes).")
+            return
+
+        # Rule 2: Different command → 1 minute
+        if now - user_data["last_command_time"] < 60:
+            reply("⏳ Please wait 1 minute between commands.")
+            return
+
+        # Update cooldown timestamps
+        user_data["commands"][cmd] = now
+        user_data["last_command_time"] = now
+        self.cooldown_data[sender] = user_data
+
+        # Execute command
         response, _ = commands.handle_command(content, sender)
 
         if response is not None:
@@ -156,13 +193,12 @@ class LXMFBot:
         stats["per_command"][cmd] += 1
 
     # -------------------------
-    # Sending (FIXED LXMF SAFE)
+    # Sending (LXMF SAFE)
     # -------------------------
 
     def send(self, destination, message):
 
-        # 🔒 Ensure message is ALWAYS a string
-        message = str(message)
+        message = str(message)  # Prevent tuple crash
 
         try:
             hash_bytes = bytes.fromhex(destination)
