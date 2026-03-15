@@ -13,7 +13,7 @@ from commands import register
     "interfaces",
     "Show active Reticulum interfaces",
     category="network",
-    cooldown=20
+    cooldown=60
 )
 def interfaces(args):
 
@@ -39,7 +39,7 @@ def interfaces(args):
     "neighbors",
     "Show known network neighbors",
     category="network",
-    cooldown=30
+    cooldown=60
 )
 def neighbors(args):
 
