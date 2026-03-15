@@ -21,7 +21,7 @@ class LXMFBot:
         self.name = name
         self.announce_time = announce
 
-        # rate limiting
+        # cooldown system
         self.cooldown = 300
         self.user_last_message = {}
         self.user_warned = {}
@@ -143,7 +143,7 @@ class LXMFBot:
         command = content.lower().strip()
 
         try:
-            response, known = commands.handle_command(command)
+            response, known = commands.handle_command(command, sender)
         except Exception as e:
             RNS.log(f"Command handler error: {e}", RNS.LOG_ERROR)
             reply("Error processing command.")
@@ -190,7 +190,7 @@ class LXMFBot:
         if identity is None:
 
             RNS.log(
-                "Could not recall Identity. Requesting network path.",
+                "Identity unknown. Requesting network path.",
                 RNS.LOG_ERROR,
             )
 
