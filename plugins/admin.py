@@ -1,5 +1,4 @@
-from commands import register
-from commands import BOT_INSTANCE, admin_login, is_admin
+from commands import register, admin_login, is_admin
 
 @register("admin", "Login as admin", "admin")
 def admin_cmd(args):
