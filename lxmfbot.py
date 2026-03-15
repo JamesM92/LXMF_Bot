@@ -61,14 +61,14 @@ class LXMFBot:
         self.router.register_delivery_callback(self._message_received)
 
         # -------------------------
-        # Load Commands
+        # Load Commands + Plugins
         # -------------------------
 
         commands.set_bot(self)
         commands.load_plugins()
 
         # -------------------------
-        # State
+        # Persistent State
         # -------------------------
 
         self.state_file = os.path.join(self.base_path, "state.json")
@@ -77,7 +77,7 @@ class LXMFBot:
         print("🌐 Community Mesh Node Online")
 
     # -------------------------
-    # Persistent State
+    # State Handling
     # -------------------------
 
     def _load_state(self):
@@ -140,7 +140,7 @@ class LXMFBot:
             return
 
         # -------------------------
-        # Cooldown System
+        # Cooldown System (With One-Time Warning)
         # -------------------------
 
         cmd = content.split()[0].lower() if content else ""
@@ -148,25 +148,44 @@ class LXMFBot:
         if sender not in self.cooldown_data:
             self.cooldown_data[sender] = {
                 "last_command_time": 0,
-                "commands": {}
+                "commands": {},
+                "warnings": {}
             }
 
         user_data = self.cooldown_data[sender]
 
-        # Rule 1: Same command → 5 minutes
+        # Same command cooldown (5 min)
         last_cmd_time = user_data["commands"].get(cmd, 0)
-        if now - last_cmd_time < 300:
-            reply("⏳ That command is on cooldown (5 minutes).")
+        same_blocked = (now - last_cmd_time < 300)
+
+        # Different command cooldown (1 min)
+        different_blocked = (now - user_data["last_command_time"] < 60)
+
+        if same_blocked or different_blocked:
+
+            warning_type = "same" if same_blocked else "different"
+
+            if not user_data["warnings"].get(cmd, {}).get(warning_type, False):
+
+                if same_blocked:
+                    reply("⏳ That command is on cooldown (5 minutes).")
+                else:
+                    reply("⏳ Please wait 1 minute between commands.")
+
+                user_data["warnings"].setdefault(cmd, {})
+                user_data["warnings"][cmd][warning_type] = True
+
             return
 
-        # Rule 2: Different command → 1 minute
-        if now - user_data["last_command_time"] < 60:
-            reply("⏳ Please wait 1 minute between commands.")
-            return
+        # -------------------------
+        # Cooldown Passed
+        # -------------------------
 
-        # Update cooldown timestamps
         user_data["commands"][cmd] = now
         user_data["last_command_time"] = now
+
+        user_data["warnings"].pop(cmd, None)
+
         self.cooldown_data[sender] = user_data
 
         # Execute command
@@ -193,12 +212,12 @@ class LXMFBot:
         stats["per_command"][cmd] += 1
 
     # -------------------------
-    # Sending (LXMF SAFE)
+    # LXMF Safe Send
     # -------------------------
 
     def send(self, destination, message):
 
-        message = str(message)  # Prevent tuple crash
+        message = str(message)
 
         try:
             hash_bytes = bytes.fromhex(destination)
