@@ -26,7 +26,6 @@ class LXMFBot:
             }
         }
 
-        # Cooldown tracking
         self.cooldowns = {}
 
         dirs = AppDirs("LXMFBot", "community")
@@ -80,6 +79,7 @@ class LXMFBot:
 
         cmd_name = content.split()[0].lower()
 
+        # Run command
         response, handled = commands.handle_command(
             content, sender
         )
@@ -88,18 +88,25 @@ class LXMFBot:
             self.send(sender, "❌ Unrecognized command.")
             return
 
-        # Admin bypass
+        # =================================================
+        # ADMIN BYPASS (MUST COME BEFORE COOLDOWN)
+        # =================================================
+
         entry = commands.COMMANDS.get(cmd_name)
 
         if isinstance(entry, str):
             entry = commands.COMMANDS.get(entry)
 
         if entry and entry.get("admin") and commands.is_admin(sender):
+
             self._update_stats(sender, cmd_name)
             self.send(sender, str(response))
-            return
+            return  # 🚀 skip cooldown entirely
 
-        # Cooldown check
+        # =================================================
+        # NORMAL COOLDOWN LOGIC
+        # =================================================
+
         if not self._check_cooldown(sender, cmd_name, entry):
             return
 
@@ -107,7 +114,7 @@ class LXMFBot:
         self.send(sender, str(response))
 
     # =====================================================
-    # Cooldown Logic (FIXED)
+    # Cooldown Logic
     # =====================================================
 
     def _check_cooldown(self, sender, cmd, entry):
@@ -123,7 +130,6 @@ class LXMFBot:
         if entry:
             command_cooldown = entry.get("cooldown", 60)
 
-        # Determine effective cooldown on first use
         if cmd not in user_data:
             effective = min(self.GLOBAL_COOLDOWN, command_cooldown)
         else:
@@ -134,11 +140,9 @@ class LXMFBot:
         if now - last_used < effective:
 
             remaining = int(effective - (now - last_used))
-
             self.send(sender, f"⏳ Please wait {remaining}s.")
             return False
 
-        # Update timestamp
         user_data[cmd] = now
         return True
 
@@ -198,7 +202,6 @@ class LXMFBot:
     def run(self):
 
         while True:
-
             while not self.queue.empty():
                 lxm = self.queue.get()
                 self.router.handle_outbound(lxm)
