@@ -17,6 +17,14 @@ ADMIN_PASSWORD_HASH = hashlib.sha256(
 ACTIVE_ADMINS = {}
 LOGIN_COOLDOWN = {}
 
+# -------------------------
+# Cooldown Settings
+# -------------------------
+
+USER_LAST_COMMAND = {}
+GLOBAL_COOLDOWN_SECONDS = 5
+HELP_PAGE_SIZE = 5
+
 
 # -------------------------
 # Bot Reference
@@ -28,12 +36,16 @@ def set_bot(bot):
 
 
 # -------------------------
-# Register Command
+# Register Command (WITH ALIASES)
 # -------------------------
 
-def register(name, desc, category="general", admin=False, cooldown=60):
+def register(name, desc, category="general", admin=False, cooldown=60, aliases=None):
+
+    if aliases is None:
+        aliases = []
 
     def wrapper(func):
+
         COMMANDS[name] = {
             "func": func,
             "desc": desc,
@@ -41,6 +53,10 @@ def register(name, desc, category="general", admin=False, cooldown=60):
             "admin": admin,
             "cooldown": cooldown
         }
+
+        for alias in aliases:
+            COMMANDS[alias] = COMMANDS[name]
+
         return func
 
     return wrapper
@@ -82,10 +98,10 @@ def admin_login(sender, password):
 
 
 # -------------------------
-# Grouped Help Menu
+# Help Menu (Paginated Categories)
 # -------------------------
 
-def help_menu():
+def help_menu(page=1):
 
     grouped = {}
 
@@ -93,18 +109,55 @@ def help_menu():
         category = entry.get("category", "general")
         grouped.setdefault(category, []).append((cmd, entry))
 
-    output = ["Commands:\n"]
+    categories = sorted(grouped.keys())
+    total_pages = max(1, (len(categories) + HELP_PAGE_SIZE - 1) // HELP_PAGE_SIZE)
 
-    for category in sorted(grouped):
+    if page < 1 or page > total_pages:
+        return f"Invalid page. Use 1-{total_pages}", True
 
-        output.append(f"\n📦 {category.upper()}")
+    start = (page - 1) * HELP_PAGE_SIZE
+    end = start + HELP_PAGE_SIZE
+    page_categories = categories[start:end]
 
-        for cmd, entry in sorted(grouped[category]):
-            admin_flag = " (admin)" if entry.get("admin") else ""
-            output.append(f"  • {cmd}{admin_flag} - {entry['desc']}")
-            
+    output = [f"📖 HELP (Page {page}/{total_pages})\n"]
+
+    for category in page_categories:
+        output.append(f"📦 {category.upper()}")
+
+    output.append("\n\nUse:")
+    output.append("• help")
+    output.append("• help <page number>")
+    output.append("• help <category name>")
+
     output.append("\n\nhttps://github.com/JamesM92/LXMF_Bot")
-    return "\n".join(output)
+
+    return "\n".join(output), True
+
+
+# -------------------------
+# Category Help View
+# -------------------------
+
+def category_help(category_name):
+
+    category_name = category_name.lower()
+
+    matches = [
+        (cmd, entry)
+        for cmd, entry in COMMANDS.items()
+        if entry.get("category", "general").lower() == category_name
+    ]
+
+    if not matches:
+        return "Category not found.", True
+
+    output = [f"📦 {category_name.upper()}\n"]
+
+    for cmd, entry in sorted(matches):
+        admin_flag = " (admin)" if entry.get("admin") else ""
+        output.append(f"• {cmd}{admin_flag} - {entry['desc']}")
+
+    return "\n".join(output), True
 
 
 # -------------------------
@@ -116,10 +169,28 @@ def handle_command(message, sender):
     parts = message.strip().split()
 
     if not parts:
-        return help_menu(), False
+        return help_menu(1)
 
     cmd = parts[0].lower()
     args = parts[1:]
+
+    # -----------------
+    # HELP HANDLING
+    # -----------------
+
+    if cmd in ["help", "?", "h"]:
+
+        if not args:
+            return help_menu(1)
+
+        if args[0].isdigit():
+            return help_menu(int(args[0]))
+
+        return category_help(args[0])
+
+    # -----------------
+    # Command Exists?
+    # -----------------
 
     if cmd not in COMMANDS:
         return None, False
@@ -129,9 +200,46 @@ def handle_command(message, sender):
     if entry["admin"] and not is_admin(sender):
         return "Admin only.", True
 
+    now = time.time()
+
+    # -----------------
+    # Command-Level Cooldown
+    # -----------------
+
+    user_data = USER_LAST_COMMAND.get(sender, {})
+    last_used_time = user_data.get(cmd, 0)
+
+    if now - last_used_time < entry["cooldown"]:
+        remaining = int(entry["cooldown"] - (now - last_used_time))
+        return f"Command cooldown. Try again in {remaining}s.", True
+
+    # -----------------
+    # Global Cooldown (Only if Switching Commands)
+    # -----------------
+
+    previous_command = user_data.get("last_command")
+
+    if previous_command and previous_command != cmd:
+        global_last = user_data.get("global_time", 0)
+
+        if now - global_last < GLOBAL_COOLDOWN_SECONDS:
+            remaining = int(GLOBAL_COOLDOWN_SECONDS - (now - global_last))
+            return f"Global cooldown. Try again in {remaining}s.", True
+
+    # -----------------
+    # Execute Command
+    # -----------------
+
     try:
         result = entry["func"](args + [sender])
+
+        USER_LAST_COMMAND.setdefault(sender, {})
+        USER_LAST_COMMAND[sender][cmd] = now
+        USER_LAST_COMMAND[sender]["last_command"] = cmd
+        USER_LAST_COMMAND[sender]["global_time"] = now
+
         return result, True
+
     except Exception as e:
         return f"Command error: {repr(e)}", True
 
