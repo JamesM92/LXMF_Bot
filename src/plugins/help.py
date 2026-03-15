@@ -1,21 +1,12 @@
-##############################
-
-from commands import register, help_menu, category_help
+from commands import register
 
 
 @register(
     "help",
-    "Show command categories",
+    "Show help menu",
     category="core",
-    cooldown=30,
-    aliases=["?", "h"]
+    aliases=["?", "h"],
+    cooldown=5
 )
 def help_cmd(args):
-
-    if not args:
-        return help_menu(1)
-
-    if args[0].isdigit():
-        return help_menu(int(args[0]))
-
-    return category_help(args[0])
+    return None, False
