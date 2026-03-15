@@ -46,10 +46,32 @@ class LXMFBot:
             self._message_received
         )
 
+        # -------------------------
+        # Bot State
+        # -------------------------
+
+        self.state = {
+            "lockdown": False,
+            "stats": {
+                "total": 0,
+                "per_user": {},
+                "per_command": {}
+            }
+        }
+
         commands.set_bot(self)
         commands.load_plugins()
 
         print("🌐 Community Mesh Node Online")
+
+    # -------------------------
+    # Lockdown Toggle
+    # -------------------------
+
+    def toggle_lockdown(self):
+
+        self.state["lockdown"] = not self.state["lockdown"]
+        return self.state["lockdown"]
 
     # -------------------------
     # Message Handling
@@ -67,6 +89,10 @@ class LXMFBot:
         if not content:
             return
 
+        # Optional: Lockdown enforcement
+        if self.state["lockdown"] and not commands.is_admin(sender):
+            return
+
         def reply(msg):
             self.send(sender, str(msg))
 
@@ -75,10 +101,27 @@ class LXMFBot:
             sender
         )
 
-        if handled and response is not None:
-            reply(response)
+        if handled:
 
-        elif not handled:
+            # -------------------------
+            # Update Stats
+            # -------------------------
+
+            stats = self.state["stats"]
+            stats["total"] += 1
+
+            stats["per_user"][sender] = \
+                stats["per_user"].get(sender, 0) + 1
+
+            cmd_name = content.split()[0].lower()
+
+            stats["per_command"][cmd_name] = \
+                stats["per_command"].get(cmd_name, 0) + 1
+
+            if response is not None:
+                reply(response)
+
+        else:
             reply(
                 "❌ Unrecognized command.\n\n"
                 + commands.help_menu()[0]
