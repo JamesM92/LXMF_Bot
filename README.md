@@ -15,5 +15,9 @@ Commands for network diagnostics are presetup
 Rate limits for each user to limit the spamming of commands, and to limit repeats of the same command.
 
 
-Forked from
-https://codeberg.org/randogoth/lxmf-bot
+
+# AI Generated
+I used chatgpt to develope this code, i did almost no coding myself.
+
+ 
+Forked from https://codeberg.org/randogoth/lxmf-bot
