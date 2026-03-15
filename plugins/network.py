@@ -1,5 +1,5 @@
-from commands import register
 import time
+from commands import register
 
 @register("time", "Show node time", "network")
 def node_time(args):
