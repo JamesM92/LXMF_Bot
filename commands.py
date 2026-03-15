@@ -18,24 +18,40 @@ ACTIVE_ADMINS = {}
 LOGIN_COOLDOWN = {}
 
 
+# -------------------------
+# Bot Reference
+# -------------------------
+
 def set_bot(bot):
     global BOT_INSTANCE
     BOT_INSTANCE = bot
 
 
-def register(name, desc, category="general", admin=False):
+# -------------------------
+# Register Command (WITH PER-COMMAND COOLDOWN)
+# -------------------------
+
+def register(name, desc, category="general", admin=False, cooldown=60):
+    """
+    cooldown = seconds
+    """
 
     def wrapper(func):
         COMMANDS[name] = {
             "func": func,
             "desc": desc,
             "category": category,
-            "admin": admin
+            "admin": admin,
+            "cooldown": cooldown
         }
         return func
 
     return wrapper
 
+
+# -------------------------
+# Admin Check
+# -------------------------
 
 def is_admin(sender):
 
@@ -47,6 +63,10 @@ def is_admin(sender):
 
     return False
 
+
+# -------------------------
+# Admin Login
+# -------------------------
 
 def admin_login(sender, password):
 
@@ -63,6 +83,10 @@ def admin_login(sender, password):
 
     return False, "Invalid password."
 
+
+# -------------------------
+# Handle Commands
+# -------------------------
 
 def handle_command(message, sender):
 
@@ -83,10 +107,15 @@ def handle_command(message, sender):
         return "Admin only.", True
 
     try:
-        return entry["func"](args + [sender]), True
+        result = entry["func"](args + [sender])
+        return result, True
     except Exception as e:
         return f"Command error: {repr(e)}", True
 
+
+# -------------------------
+# Help Menu
+# -------------------------
 
 def help_menu():
 
@@ -97,6 +126,10 @@ def help_menu():
 
     return "\n".join(out)
 
+
+# -------------------------
+# Plugin Loader
+# -------------------------
 
 def load_plugins():
 
