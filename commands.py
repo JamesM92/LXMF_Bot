@@ -1,3 +1,5 @@
+##############################
+
 import importlib
 import os
 import time
@@ -43,23 +45,6 @@ def is_admin(sender):
     return False
 
 
-def admin_login(sender, password):
-
-    now = time.time()
-
-    if LOGIN_COOLDOWN.get(sender, 0) > now:
-        return False, "Login cooldown active."
-
-    LOGIN_COOLDOWN[sender] = now + 30
-
-    if hashlib.sha256(password.encode()).hexdigest() == ADMIN_PASSWORD_HASH:
-
-        ACTIVE_ADMINS[sender] = now + 1800
-        return True, "Admin authenticated."
-
-    return False, "Invalid password."
-
-
 def handle_command(message, sender):
 
     parts = message.strip().split()
@@ -80,8 +65,8 @@ def handle_command(message, sender):
 
     try:
         return entry["func"](args + [sender]), True
-    except:
-        return "Command error.", True
+    except Exception as e:
+        return f"Command error: {repr(e)}", True
 
 
 def help_menu():
@@ -96,9 +81,11 @@ def help_menu():
 
 def load_plugins():
 
-    for file in os.listdir("plugins"):
+    plugin_path = os.path.join(os.path.dirname(__file__), "plugins")
+
+    if not os.path.isdir(plugin_path):
+        return
+
+    for file in os.listdir(plugin_path):
         if file.endswith(".py") and file != "__init__.py":
             importlib.import_module(f"plugins.{file[:-3]}")
-
-
-load_plugins()
