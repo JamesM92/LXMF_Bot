@@ -1,18 +1,7 @@
 import math
-from commands import register, COMMANDS
+from commands import register, get_commands_snapshot
 
 PAGE_SIZE = 5
-
-
-def get_snapshot():
-
-    snapshot = {}
-
-    for name, entry in COMMANDS.items():
-        if isinstance(entry, dict):
-            snapshot[name] = entry
-
-    return snapshot
 
 
 def build_categories(commands):
@@ -40,7 +29,7 @@ def build_categories(commands):
 )
 def help_cmd(args):
 
-    commands = get_snapshot()
+    commands = get_commands_snapshot()
 
     if not args:
         return build_categories(commands)
@@ -56,9 +45,7 @@ def help_cmd(args):
     if not filtered:
         return f"No commands in '{category}'."
 
-    total_pages = math.ceil(len(filtered) / PAGE_SIZE)
-
-    lines = [f"📂 {category} ({total_pages} pages)\n"]
+    lines = [f"📂 {category}\n"]
 
     for name, data in filtered[:PAGE_SIZE]:
         admin_flag = " (admin)" if data["admin"] else ""
