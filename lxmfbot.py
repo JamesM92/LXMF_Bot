@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import RNS
 
 from LXMF import LXMRouter, LXMessage
@@ -12,192 +13,198 @@ import commands
 
 class LXMFBot:
 
-    delivery_callbacks = []
-    receipts = []
-    queue = Queue(maxsize=5)
-
-    def __init__(self, name="LXMFBot", announce=360, announce_immediately=False):
+    def __init__(self, name="LXMFBot", announce=360):
 
         self.name = name
-        self.announce_time = announce
+        self.cooldown_data = {}
 
-        # cooldown system
-        self.cooldown = 300
-        self.user_last_message = {}
-        self.user_warned = {}
-        self.user_exception_used = {}
+        dirs = AppDirs("LXMFBot", "community")
+        self.base_path = os.path.join(dirs.user_data_dir, name)
 
-        dirs = AppDirs("LXMFBot", "randogoth")
-        self.config_path = os.path.join(dirs.user_data_dir, name)
+        os.makedirs(self.base_path, exist_ok=True)
 
-        idfile = os.path.join(self.config_path, "identity")
-
-        if not os.path.isdir(dirs.user_data_dir):
-            os.mkdir(dirs.user_data_dir)
-
-        if not os.path.isdir(self.config_path):
-            os.mkdir(self.config_path)
-
+        # Identity
+        idfile = os.path.join(self.base_path, "identity")
         if not os.path.isfile(idfile):
-            RNS.log("No Primary Identity file found, creating new...", RNS.LOG_INFO)
             identity = RNS.Identity(True)
             identity.to_file(idfile)
 
         self.id = RNS.Identity.from_file(idfile)
-        RNS.log("Loaded identity from file", RNS.LOG_INFO)
 
-        if announce_immediately:
-            af = os.path.join(self.config_path, "announce")
-            if os.path.isfile(af):
-                os.remove(af)
-                RNS.log("Announcing now. Timer reset.", RNS.LOG_INFO)
-
-        RNS.Reticulum(loglevel=RNS.LOG_VERBOSE)
+        RNS.Reticulum(loglevel=RNS.LOG_INFO)
 
         self.router = LXMRouter(identity=self.id, storagepath=dirs.user_data_dir)
-
         self.local = self.router.register_delivery_identity(
             self.id, display_name=name
         )
 
         self.router.register_delivery_callback(self._message_received)
 
-        RNS.log(
-            "LXMF Router ready to receive on: {}".format(
-                RNS.prettyhexrep(self.local.hash)
-            ),
-            RNS.LOG_INFO,
-        )
+        # Global state
+        self.state_file = os.path.join(self.base_path, "state.json")
+        self._load_state()
 
-        self._announce()
+        self.queue = Queue()
 
-    def _announce(self):
+        print("Community Mesh Node Ready.")
 
-        announce_path = os.path.join(self.config_path, "announce")
+    # -------------------------
+    # State Handling
+    # -------------------------
 
-        if os.path.isfile(announce_path):
-            with open(announce_path, "r") as f:
-                announce = int(f.readline())
-        else:
-            announce = 1
+    def _load_state(self):
+        self.state = {
+            "lockdown": False,
+            "command_log": [],
+            "stats": {"total": 0, "per_user": {}, "per_command": {}},
+            "network_rate": []
+        }
 
-        if announce > int(time.time()):
-            return
+        try:
+            with open(self.state_file, "r") as f:
+                self.state = json.load(f)
+        except:
+            pass
 
-        with open(announce_path, "w+") as af:
-            next_announce = int(time.time()) + self.announce_time
-            af.write(str(next_announce))
+    def _save_state(self):
+        with open(self.state_file, "w") as f:
+            json.dump(self.state, f)
 
-        self.local.announce()
-
-        RNS.log(
-            f"Announcement sent, next in {self.announce_time} seconds",
-            RNS.LOG_INFO,
-        )
-
-    def received(self, function):
-        self.delivery_callbacks.append(function)
-        return function
+    # -------------------------
+    # Message Handling
+    # -------------------------
 
     def _message_received(self, message):
 
         sender = RNS.hexrep(message.source_hash, delimit=False)
-        receipt = RNS.hexrep(message.hash, delimit=False)
-
-        RNS.log(f"Message receipt <{receipt}>", RNS.LOG_INFO)
+        content = message.content.decode("utf-8").strip()
+        now = time.time()
 
         def reply(msg):
             self.send(sender, msg)
 
-        if receipt in self.receipts:
+        # Duplicate protection handled by LXMF internally
+
+        # -------------------------
+        # Network-wide rate limit
+        # -------------------------
+
+        self.state["network_rate"] = [
+            t for t in self.state["network_rate"]
+            if now - t < 60
+        ]
+
+        if len(self.state["network_rate"]) >= 30:
+            if not commands.is_admin(sender):
+                reply("Network busy. Try again shortly.")
+                return
+
+        self.state["network_rate"].append(now)
+
+        # -------------------------
+        # Lockdown Mode
+        # -------------------------
+
+        if self.state.get("lockdown", False):
+            if not commands.is_admin(sender):
+                reply("Node is in LOCKDOWN mode.")
+                return
+
+        # -------------------------
+        # Admin Bypass Cooldowns
+        # -------------------------
+
+        if commands.is_admin(sender):
+            response, known = commands.handle_command(content, sender)
+
+            if response:
+                reply(response)
+
+            self._log_command(sender, content)
+            self._save_state()
             return
 
-        self.receipts.append(receipt)
+        # -------------------------
+        # Cooldown System
+        # -------------------------
 
-        if len(self.receipts) > 100:
-            self.receipts.pop(0)
+        cmd = content.split()[0].lower() if content else ""
 
-        content = message.content.decode("utf-8").strip()
+        user = self.cooldown_data.get(sender, {})
 
-        obj = {
-            "lxmf": message,
-            "reply": reply,
-            "sender": sender,
-            "content": content,
-            "hash": receipt,
-        }
+        last_times = user.get("commands", {})
 
-        msg = SimpleNamespace(**obj)
-
-        for callback in self.delivery_callbacks:
-            callback(msg)
+        last_used = last_times.get(cmd, 0)
 
         now = time.time()
 
-        last = self.user_last_message.get(sender, 0)
-        warned = self.user_warned.get(sender, False)
-        exception_used = self.user_exception_used.get(sender, False)
+        same_cd = 300
+        diff_cd = 60
 
-        cooldown_active = (now - last) < self.cooldown
+        time_since = now - last_used
 
-        command = content.lower().strip()
+        if time_since < same_cd if cmd in last_times else time_since < diff_cd:
 
-        try:
-            response, known = commands.handle_command(command, sender)
-        except Exception as e:
-            RNS.log(f"Command handler error: {e}", RNS.LOG_ERROR)
-            reply("Error processing command.")
+            reply("Cooldown active. Please wait.")
             return
 
-        is_help = command in ["help", "?"]
-        is_unknown = not known
-
-        exception_allowed = (is_help or is_unknown) and not exception_used
-
-        if cooldown_active and not exception_allowed:
-
-            if not warned:
-                reply("Please wait 5 minutes before sending another command.")
-                self.user_warned[sender] = True
-
-            return
+        response, known = commands.handle_command(content, sender)
 
         if response:
             reply(response)
 
-        self.user_last_message[sender] = now
-        self.user_warned[sender] = False
+        # Update cooldown tracking
+        if sender not in self.cooldown_data:
+            self.cooldown_data[sender] = {"commands": {}}
 
-        if exception_allowed:
-            self.user_exception_used[sender] = True
-        else:
-            self.user_exception_used[sender] = False
+        self.cooldown_data[sender]["commands"][cmd] = now
 
-    def send(self, destination, message, title="Reply"):
+        self._log_command(sender, cmd)
+
+        self._save_state()
+
+    # -------------------------
+    # Logging & Stats
+    # -------------------------
+
+    def _log_command(self, sender, cmd):
+
+        now = time.time()
+
+        self.state["stats"]["total"] += 1
+        self.state["stats"]["per_user"].setdefault(sender, 0)
+        self.state["stats"]["per_user"][sender] += 1
+
+        self.state["stats"]["per_command"].setdefault(cmd, 0)
+        self.state["stats"]["per_command"][cmd] += 1
+
+        self.state["command_log"].append({
+            "time": now,
+            "sender": sender,
+            "command": cmd
+        })
+
+        if len(self.state["command_log"]) > 1000:
+            self.state["command_log"] = self.state["command_log"][-1000:]
+
+    # -------------------------
+    # Sending
+    # -------------------------
+
+    def send(self, destination, message):
 
         try:
             hash = bytes.fromhex(destination)
-        except Exception:
-            RNS.log("Invalid destination hash", RNS.LOG_ERROR)
-            return
-
-        if not len(hash) == RNS.Reticulum.TRUNCATED_HASHLENGTH // 8:
-            RNS.log("Invalid destination hash length", RNS.LOG_ERROR)
+        except:
             return
 
         identity = RNS.Identity.recall(hash)
 
-        if identity is None:
-
-            RNS.log(
-                "Identity unknown. Requesting network path.",
-                RNS.LOG_ERROR,
-            )
-
+        if not identity:
             RNS.Transport.request_path(hash)
             return
 
-        lxmf_destination = RNS.Destination(
+        dest = RNS.Destination(
             identity,
             RNS.Destination.OUT,
             RNS.Destination.SINGLE,
@@ -206,30 +213,19 @@ class LXMFBot:
         )
 
         lxm = LXMessage(
-            lxmf_destination,
+            dest,
             self.local,
             message,
-            title=title,
-            desired_method=LXMessage.DIRECT,
+            desired_method=LXMessage.DIRECT
         )
-
-        lxm.try_propagation_on_fail = True
 
         self.queue.put(lxm)
 
-    def run(self, delay=10):
-
-        RNS.log(
-            f"LXMF Bot `{self.name}` awaiting messages...",
-            RNS.LOG_INFO,
-        )
+    def run(self):
 
         while True:
-
             while not self.queue.empty():
                 lxm = self.queue.get()
                 self.router.handle_outbound(lxm)
 
-            self._announce()
-
-            time.sleep(delay)
+            time.sleep(5)
