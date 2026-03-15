@@ -1,4 +1,5 @@
-from commands import register, admin_login, is_admin
+from commands import register
+from commands import BOT_INSTANCE, admin_login, is_admin
 
 @register("admin", "Login as admin", "admin")
 def admin_cmd(args):
@@ -17,6 +18,22 @@ def admin_cmd(args):
 @register("lockdown", "Toggle lockdown mode", "admin", admin=True)
 def lockdown(args):
 
-    from lxmfbot import LXMFBot
+    bot = BOT_INSTANCE
 
-    return "Lockdown feature available in state system."
+    status = bot.toggle_lockdown()
+
+    return "🔒 Lockdown ON" if status else "🔓 Lockdown OFF"
+
+
+@register("stats", "Show usage statistics", "admin", admin=True)
+def stats(args):
+
+    bot = BOT_INSTANCE
+    stats = bot.state["stats"]
+
+    return (
+        f"📊 Stats\n"
+        f"Total: {stats['total']}\n"
+        f"Users: {len(stats['per_user'])}\n"
+        f"Commands: {len(stats['per_command'])}"
+    )
