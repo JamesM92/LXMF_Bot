@@ -16,7 +16,7 @@ start_time = time.time()
     "ping",
     "Test bot response",
     category="tools",
-    cooldown=5   # Short cooldown to prevent spam
+    cooldown=60   # Short cooldown to prevent spam
 )
 def ping(args):
 
@@ -31,7 +31,7 @@ def ping(args):
     "uptime",
     "Show bot uptime",
     category="tools",
-    cooldown=15   # Prevent frequent spamming
+    cooldown=120   # Prevent frequent spamming
 )
 def uptime(args):
 
