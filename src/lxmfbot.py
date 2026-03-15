@@ -2,7 +2,6 @@
 
 import os
 import time
-import json
 import RNS
 
 from LXMF import LXMRouter, LXMessage
@@ -18,7 +17,6 @@ class LXMFBot:
 
         self.name = name
         self.queue = Queue()
-        self.cooldown_data = {}  # kept for compatibility (unused now)
 
         dirs = AppDirs("LXMFBot", "community")
         self.base_path = os.path.join(dirs.user_data_dir, name)
@@ -66,21 +64,21 @@ class LXMFBot:
 
         content = message.content.decode("utf-8").strip()
 
-        def reply(msg):
-            self.send(sender, str(msg))
-
         if not content:
             return
 
+        def reply(msg):
+            self.send(sender, str(msg))
+
         response, handled = commands.handle_command(
-            content, sender
+            content,
+            sender
         )
 
         if handled and response is not None:
             reply(response)
 
         elif not handled:
-
             reply(
                 "❌ Unrecognized command.\n\n"
                 + commands.help_menu()[0]
