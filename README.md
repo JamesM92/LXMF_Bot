@@ -7,12 +7,20 @@ This bot allows the use of plugins to expand capabilities and keep the code clea
 
 # Admin Commands
 This bot keep some commands behind admin password or whitelisted lxmf addresses
+Add the addmin password has or addresses to the commands.py file
 
 # Network diagnostics
 Commands for network diagnostics are presetup
 
 # Commands cooldown
-Rate limits for each user to limit the spamming of commands, and to limit repeats of the same command.
+Rate limits for each user to limit the spamming of commands, and to limit repeats of the same commands, or unknown commands.
+
+# Run as a serivce
+to run this as a service move the lxmfbot.service file to /etc/systemd/system/ and change the directory paths inside the file to match the actual lxmfbot.py location.
+
+
+
+
 
 
 
