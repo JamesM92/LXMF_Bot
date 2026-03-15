@@ -1,3 +1,7 @@
+#################################
+# lxmfbot.py
+#################################
+
 import os
 import time
 import RNS
@@ -11,13 +15,15 @@ import commands
 
 class LXMFBot:
 
-    GLOBAL_COOLDOWN = 60
-
     def __init__(self, name="CommunityNode"):
 
         self.name = name
         self.queue = Queue()
 
+        # Per-user per-command cooldown storage
+        self.cooldowns = {}
+
+        # Stats storage
         self.state = {
             "stats": {
                 "total": 0,
@@ -26,7 +32,9 @@ class LXMFBot:
             }
         }
 
-        self.cooldowns = {}
+        # -------------------------
+        # Identity Setup
+        # -------------------------
 
         dirs = AppDirs("LXMFBot", "community")
         self.base_path = os.path.join(dirs.user_data_dir, name)
@@ -56,6 +64,7 @@ class LXMFBot:
             self._message_received
         )
 
+        # Link bot to command system
         commands.set_bot(self)
         commands.load_plugins()
 
@@ -67,7 +76,11 @@ class LXMFBot:
 
     def _message_received(self, message):
 
-        sender = RNS.hexrep(message.source_hash, delimit=False)
+        sender = RNS.hexrep(
+            message.source_hash,
+            delimit=False
+        )
+
         content = message.content.decode("utf-8").strip()
 
         if not content:
@@ -75,24 +88,29 @@ class LXMFBot:
 
         cmd_name = content.split()[0].lower()
 
+        # Execute command
         response, handled = commands.handle_command(content, sender)
 
         if not handled:
             self.send(sender, "❌ Unrecognized command.")
             return
 
+        # Resolve alias to real command entry
         entry = commands.COMMANDS.get(cmd_name)
         if isinstance(entry, str):
             entry = commands.COMMANDS.get(entry)
 
         # =====================================================
-        # 🚀 ADMIN BYPASS (ABSOLUTE FIRST)
+        # 🚀 ADMIN BYPASS (ABSOLUTE PRIORITY)
         # =====================================================
 
         if commands.is_admin(sender):
 
             self._update_stats(sender, cmd_name)
-            self.send(sender, str(response))
+
+            if response is not None:
+                self.send(sender, str(response))
+
             return
 
         # =====================================================
@@ -103,7 +121,9 @@ class LXMFBot:
             return
 
         self._update_stats(sender, cmd_name)
-        self.send(sender, str(response))
+
+        if response is not None:
+            self.send(sender, str(response))
 
     # =====================================================
     # Cooldown Logic
@@ -120,19 +140,33 @@ class LXMFBot:
 
         command_cooldown = entry.get("cooldown", 60) if entry else 60
 
-        if cmd not in user_data:
-            effective = min(self.GLOBAL_COOLDOWN, command_cooldown)
-        else:
-            effective = command_cooldown
+        last_used = user_data.get(cmd)
 
-        last_used = user_data.get(cmd, 0)
+        # -------------------------------------------------
+        # FIRST TIME USING THIS COMMAND
+        # -------------------------------------------------
+        if last_used is None:
+            # Allow immediate execution
+            user_data[cmd] = now
+            return True
 
-        if now - last_used < effective:
+        # -------------------------------------------------
+        # NORMAL COOLDOWN CHECK
+        # -------------------------------------------------
+        elapsed = now - last_used
 
-            remaining = int(effective - (now - last_used))
-            self.send(sender, f"⏳ Please wait {remaining}s.")
+        if elapsed < command_cooldown:
+
+            remaining = int(command_cooldown - elapsed)
+
+            self.send(
+                sender,
+                f"⏳ Please wait {remaining}s before using '{cmd}' again."
+            )
+
             return False
 
+        # Update timestamp
         user_data[cmd] = now
         return True
 
@@ -149,7 +183,7 @@ class LXMFBot:
         stats["per_command"][cmd] = stats["per_command"].get(cmd, 0) + 1
 
     # =====================================================
-    # Send
+    # Send Message
     # =====================================================
 
     def send(self, destination, message):
