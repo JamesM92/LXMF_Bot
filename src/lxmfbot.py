@@ -41,48 +41,64 @@ class LXMFBot:
 
         idfile = os.path.join(self.base_path, "identity")
 
+        # Create identity if missing
         if not os.path.isfile(idfile):
             identity = RNS.Identity(True)
             identity.to_file(idfile)
 
+        # Load persistent identity
         self.id = RNS.Identity.from_file(idfile)
 
-        # LXMF Router
+        # Create LXMF router
         self.router = LXMRouter(
             identity=self.id,
             storagepath=dirs.user_data_dir
         )
 
-        # Delivery identity (this is a Destination)
+        # Register delivery identity (this is a Destination)
         self.local = self.router.register_delivery_identity(
             self.id,
             display_name=name
         )
 
+        # Message callback
         self.router.register_delivery_callback(
             self._message_received
         )
 
+        # Initialize commands
         commands.set_bot(self)
         commands.load_plugins()
 
         print("🌐 Community Mesh Node Online")
 
-        # -------------------------------------------------
-        # 📡 Version-Safe Startup Network Trigger
-        # -------------------------------------------------
+        # =====================================================
+        # 📬 PRINT PERMANENT CONTACT ADDRESS
+        # =====================================================
+
+        try:
+            bot_hash = RNS.hexrep(self.local.hash, delimit=False)
+
+            print("📬 Permanent Bot Contact Address:")
+            print("   " + bot_hash)
+
+        except Exception as e:
+            print("⚠️ Could not determine contact address:", e)
+
+        # =====================================================
+        # 📡 VERSION-SAFE STARTUP NETWORK TRIGGER
+        # =====================================================
 
         try:
             time.sleep(3)
 
-            # Trigger network path discovery for this node
-            # self.local is already a Destination in your version
+            # Trigger network discovery for this node
             RNS.Transport.request_path(self.local.hash)
 
             print("📢 Startup network trigger sent successfully.")
 
         except Exception as e:
-            print("⚠️ Failed to trigger announce:", e)
+            print("⚠️ Failed to trigger network announce:", e)
 
     # =====================================================
     # Message Handling
@@ -108,6 +124,7 @@ class LXMFBot:
         if isinstance(entry, str):
             entry = commands.COMMANDS.get(entry)
 
+        # Admin bypass
         if commands.is_admin(sender):
 
             self._update_stats(sender, cmd_name)
@@ -117,6 +134,7 @@ class LXMFBot:
 
             return
 
+        # Normal cooldown
         if not self._check_cooldown(sender, cmd_name, entry):
             return
 
