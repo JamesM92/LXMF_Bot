@@ -45,7 +45,7 @@ class LXMFBot:
 
         idfile = os.path.join(self.base_path, "identity")
 
-        # Create identity if it doesn't exist
+        # Create identity if missing
         if not os.path.isfile(idfile):
             identity = RNS.Identity(True)
             identity.to_file(idfile)
@@ -77,15 +77,15 @@ class LXMFBot:
         print("🌐 Community Mesh Node Online")
 
         # =====================================================
-        # 📡 STARTUP ANNOUNCE
+        # 📡 STARTUP ANNOUNCE (VERSION SAFE)
         # =====================================================
 
         try:
             # Small delay to ensure transport is ready
             time.sleep(3)
 
-            # Correct way to announce in LXMF
-            self.router.announce()
+            # Announce delivery destination
+            RNS.Transport.announce(self.local.destination)
 
             print("📢 Startup announce sent successfully.")
 
