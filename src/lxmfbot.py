@@ -30,7 +30,7 @@ class LXMFBot:
         }
 
         # -------------------------
-        # Identity Setup
+        # Reticulum Initialization
         # -------------------------
 
         dirs = AppDirs("LXMFBot", "community")
@@ -47,11 +47,13 @@ class LXMFBot:
 
         self.id = RNS.Identity.from_file(idfile)
 
+        # LXMF Router
         self.router = LXMRouter(
             identity=self.id,
             storagepath=dirs.user_data_dir
         )
 
+        # Delivery identity (this is a Destination)
         self.local = self.router.register_delivery_identity(
             self.id,
             display_name=name
@@ -66,17 +68,18 @@ class LXMFBot:
 
         print("🌐 Community Mesh Node Online")
 
-        # =====================================================
-        # 📡 VERSION-SAFE NETWORK ANNOUNCE
-        # =====================================================
+        # -------------------------------------------------
+        # 📡 Version-Safe Startup Network Trigger
+        # -------------------------------------------------
 
         try:
             time.sleep(3)
 
-            # This triggers proper network announce behavior
-            RNS.Transport.request_path(self.local.destination.hash)
+            # Trigger network path discovery for this node
+            # self.local is already a Destination in your version
+            RNS.Transport.request_path(self.local.hash)
 
-            print("📢 Startup path request sent (announce triggered).")
+            print("📢 Startup network trigger sent successfully.")
 
         except Exception as e:
             print("⚠️ Failed to trigger announce:", e)
@@ -143,11 +146,17 @@ class LXMFBot:
             user_data[cmd] = now
             return True
 
-        if now - last_used < command_cooldown:
+        elapsed = now - last_used
 
-            remaining = int(command_cooldown - (now - last_used))
+        if elapsed < command_cooldown:
 
-            self.send(sender, f"⏳ Please wait {remaining}s before using '{cmd}' again.")
+            remaining = int(command_cooldown - elapsed)
+
+            self.send(
+                sender,
+                f"⏳ Please wait {remaining}s before using '{cmd}' again."
+            )
+
             return False
 
         user_data[cmd] = now
