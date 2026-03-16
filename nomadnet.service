@@ -1,0 +1,20 @@
+                       
+[Unit]
+Description=NomadNet Service
+Wants=network-online.target reticulum.service
+After=network-online.target reticulum.service
+
+[Service]
+Type=simple
+User=penguin
+WorkingDirectory=/home/penguin
+ExecStart=/home/penguin/.local/bin/nomadnet --daemon
+Restart=on-failure
+RestartSec=10
+StandardInput=null
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+
