@@ -1,29 +1,19 @@
+  GNU nano 8.4                              /etc/systemd/system/lxmfbot.service                                       
 #Make sure ot move this file to the correct location in /etc/systemd/system/myapp.service
 [Unit]
 Description=LXMF Community Mesh Bot
-After=network.target
-Wants=network.target
+Wants=network-online.target reticulum.service
+After=network-online.target reticulum.service
+Requires=reticulum.service
 
 [Service]
 Type=simple
+User=penguin
+WorkingDirectory=/home/penguin/
+ExecStart=/home/penguin/github.com/JamesM92/LXMF_Bot/.venv/bin/python3 /home/penguin/github.com/JamesM92/LXMF_Bot/lxm>
 Restart=always
-RestartSec=5
-
-
-# Project directory (CHANGE IF NEEDED)
-WorkingDirectory=/home/penguin/github.com/JamesM92/LXMF_Bot/src
-
-# Virtual environment python (IMPORTANT)
-ExecStart=/home/penguin/github.com/JamesM92/LXMF_Bot/.venv/bin/python3 /home/penguin/github.com/JamesM92/LXMF_Bot/src/runbot.py
-
-
-
-# Log to journal
-StandardOutput=journal
-StandardError=journal
-
-# Safer defaults
-Environment=PYTHONUNBUFFERED=1
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
+
