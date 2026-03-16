@@ -20,8 +20,10 @@ class LXMFBot:
         self.name = name
         self.queue = Queue()
 
+        # Per-user per-command cooldown storage
         self.cooldowns = {}
 
+        # Stats storage
         self.state = {
             "stats": {
                 "total": 0,
@@ -38,45 +40,52 @@ class LXMFBot:
         self.base_path = os.path.join(dirs.user_data_dir, name)
         os.makedirs(self.base_path, exist_ok=True)
 
+        # Initialize Reticulum
         RNS.Reticulum(loglevel=RNS.LOG_INFO)
 
         idfile = os.path.join(self.base_path, "identity")
 
+        # Create identity if it doesn't exist
         if not os.path.isfile(idfile):
             identity = RNS.Identity(True)
             identity.to_file(idfile)
 
+        # Load persistent identity
         self.id = RNS.Identity.from_file(idfile)
 
+        # Create LXMF router
         self.router = LXMRouter(
             identity=self.id,
             storagepath=dirs.user_data_dir
         )
 
+        # Register delivery identity
         self.local = self.router.register_delivery_identity(
             self.id,
             display_name=name
         )
 
+        # Register message callback
         self.router.register_delivery_callback(
             self._message_received
         )
 
-        # Link bot to command system
+        # Initialize command system
         commands.set_bot(self)
         commands.load_plugins()
 
         print("🌐 Community Mesh Node Online")
 
         # =====================================================
-        # 📡 SEND STARTUP ANNOUNCE
+        # 📡 STARTUP ANNOUNCE
         # =====================================================
 
         try:
             # Small delay to ensure transport is ready
-            time.sleep(2)
+            time.sleep(3)
 
-            RNS.Transport.announce(self.local)
+            # Correct way to announce in LXMF
+            self.router.announce()
 
             print("📢 Startup announce sent successfully.")
 
@@ -111,6 +120,7 @@ class LXMFBot:
         if isinstance(entry, str):
             entry = commands.COMMANDS.get(entry)
 
+        # Admin bypass
         if commands.is_admin(sender):
 
             self._update_stats(sender, cmd_name)
@@ -120,6 +130,7 @@ class LXMFBot:
 
             return
 
+        # Normal cooldown flow
         if not self._check_cooldown(sender, cmd_name, entry):
             return
 
