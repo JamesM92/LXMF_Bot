@@ -19,8 +19,11 @@ class LXMFBot:
 
         self.name = name
         self.queue = Queue()
+
+        # Per-user per-command cooldown storage
         self.cooldowns = {}
 
+        # Stats storage
         self.state = {
             "stats": {
                 "total": 0,
@@ -30,7 +33,7 @@ class LXMFBot:
         }
 
         # -------------------------
-        # Reticulum Initialization
+        # Identity Setup
         # -------------------------
 
         dirs = AppDirs("LXMFBot", "community")
@@ -41,64 +44,41 @@ class LXMFBot:
 
         idfile = os.path.join(self.base_path, "identity")
 
-        # Create identity if missing
         if not os.path.isfile(idfile):
             identity = RNS.Identity(True)
             identity.to_file(idfile)
 
-        # Load persistent identity
         self.id = RNS.Identity.from_file(idfile)
 
-        # Create LXMF router
         self.router = LXMRouter(
             identity=self.id,
             storagepath=dirs.user_data_dir
         )
 
-        # Register delivery identity (this is a Destination)
         self.local = self.router.register_delivery_identity(
             self.id,
             display_name=name
         )
 
-        # Message callback
         self.router.register_delivery_callback(
             self._message_received
         )
 
-        # Initialize commands
+        # Link bot to command system
         commands.set_bot(self)
         commands.load_plugins()
 
         print("🌐 Community Mesh Node Online")
 
-        # =====================================================
-        # 📬 PRINT PERMANENT CONTACT ADDRESS
-        # =====================================================
-
+        # -------------------------------------------------
+        # 📬 Print Permanent Contact Address
+        # -------------------------------------------------
         try:
             bot_hash = RNS.hexrep(self.local.hash, delimit=False)
-
             print("📬 Permanent Bot Contact Address:")
             print("   " + bot_hash)
-
         except Exception as e:
             print("⚠️ Could not determine contact address:", e)
-
-        # =====================================================
-        # 📡 VERSION-SAFE STARTUP NETWORK TRIGGER
-        # =====================================================
-
-        try:
-            time.sleep(3)
-
-            # Trigger network discovery for this node
-            RNS.Transport.request_path(self.local.hash)
-
-            print("📢 Startup network trigger sent successfully.")
-
-        except Exception as e:
-            print("⚠️ Failed to trigger network announce:", e)
 
     # =====================================================
     # Message Handling
@@ -107,8 +87,8 @@ class LXMFBot:
     def _message_received(self, message):
 
         sender = RNS.hexrep(message.source_hash, delimit=False)
-
         content = message.content.decode("utf-8").strip()
+
         if not content:
             return
 
@@ -124,7 +104,6 @@ class LXMFBot:
         if isinstance(entry, str):
             entry = commands.COMMANDS.get(entry)
 
-        # Admin bypass
         if commands.is_admin(sender):
 
             self._update_stats(sender, cmd_name)
@@ -134,7 +113,6 @@ class LXMFBot:
 
             return
 
-        # Normal cooldown
         if not self._check_cooldown(sender, cmd_name, entry):
             return
 
@@ -227,14 +205,30 @@ class LXMFBot:
         self.queue.put(lxm)
 
     # =====================================================
-    # Run Loop
+    # Main Loop
     # =====================================================
 
     def run(self):
 
-        while True:
-            while not self.queue.empty():
-                lxm = self.queue.get()
-                self.router.handle_outbound(lxm)
+        print("🔁 Bot main loop started")
 
-            time.sleep(2)
+        while True:
+            try:
+                while not self.queue.empty():
+                    lxm = self.queue.get()
+                    self.router.handle_outbound(lxm)
+
+                time.sleep(2)
+
+            except Exception as e:
+                print("⚠️ Main loop error:", e)
+                time.sleep(5)
+
+
+# =====================================================
+# Main Entry Point (Systemd Uses This)
+# =====================================================
+
+if __name__ == "__main__":
+    bot = LXMFBot(name="TestBot")
+    bot.run()
