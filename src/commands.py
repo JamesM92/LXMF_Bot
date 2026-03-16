@@ -1,4 +1,5 @@
 import importlib
+import importlib.util
 import os
 import sys
 import time
@@ -84,16 +85,45 @@ def admin_login(sender, password):
 
 
 # =====================================================
-# Plugin Hot Reload
+# Plugin System
 # =====================================================
 
-PLUGIN_DIR = os.path.join(os.path.dirname(__file__), "plugins")
+BASE_DIR = os.path.dirname(__file__)
+
+PLUGIN_DIRS = [
+    os.path.join(BASE_DIR, "plugins"),                 # built-in plugins
+    os.path.expanduser("~/.config/lxmfbot/plugins"),   # external plugins
+]
+
+# Ensure directories exist
+for d in PLUGIN_DIRS:
+    os.makedirs(d, exist_ok=True)
+
 
 _loaded = {}
 _mtimes = {}
 _last_scan = 0
 SCAN_INTERVAL = 5
 
+
+# =====================================================
+# Plugin Loader
+# =====================================================
+
+def _load_plugin(module_name, path):
+
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    module = importlib.util.module_from_spec(spec)
+
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+
+    return module
+
+
+# =====================================================
+# Plugin Scanner
+# =====================================================
 
 def scan_plugins(force=False):
 
@@ -106,27 +136,47 @@ def scan_plugins(force=False):
 
     _last_scan = now
 
-    if not os.path.isdir(PLUGIN_DIR):
-        return
+    for plugin_dir in PLUGIN_DIRS:
 
-    for file in os.listdir(PLUGIN_DIR):
-
-        if not file.endswith(".py") or file == "__init__.py":
+        if not os.path.isdir(plugin_dir):
             continue
 
-        module_name = f"plugins.{file[:-3]}"
-        path = os.path.join(PLUGIN_DIR, file)
+        for file in os.listdir(plugin_dir):
 
-        mtime = os.path.getmtime(path)
+            if not file.endswith(".py") or file.startswith("_"):
+                continue
 
-        if module_name not in sys.modules:
-            importlib.import_module(module_name)
-            _loaded[module_name] = True
-            _mtimes[module_name] = mtime
-        else:
-            if _mtimes.get(module_name, 0) < mtime:
-                importlib.reload(sys.modules[module_name])
-                _mtimes[module_name] = mtime
+            path = os.path.join(plugin_dir, file)
+
+            module_name = f"lxmfbot_plugin_{file[:-3]}"
+
+            try:
+
+                mtime = os.path.getmtime(path)
+
+                # First load
+                if module_name not in sys.modules:
+
+                    module = _load_plugin(module_name, path)
+
+                    _loaded[module_name] = True
+                    _mtimes[module_name] = mtime
+
+                    print(f"Loaded plugin: {file}")
+
+                # Hot reload
+                else:
+
+                    if _mtimes.get(module_name, 0) < mtime:
+
+                        importlib.reload(sys.modules[module_name])
+                        _mtimes[module_name] = mtime
+
+                        print(f"Reloaded plugin: {file}")
+
+            except Exception as e:
+
+                print(f"Plugin error ({file}): {e}")
 
 
 def load_plugins():
@@ -134,7 +184,7 @@ def load_plugins():
 
 
 # =====================================================
-# Command Execution (NO COOLDOWN HERE)
+# Command Execution
 # =====================================================
 
 def handle_command(message, sender):
@@ -142,6 +192,7 @@ def handle_command(message, sender):
     scan_plugins()
 
     parts = message.strip().split()
+
     if not parts:
         return None, False
 
@@ -153,15 +204,17 @@ def handle_command(message, sender):
 
     entry = COMMANDS[cmd]
 
+    # Alias resolution
     if isinstance(entry, str):
         cmd = entry
         entry = COMMANDS[cmd]
 
-    # Permission check only
+    # Admin check
     if entry["admin"] and not is_admin(sender):
         return "Admin only.", True
 
     try:
+
         func = entry["func"]
         sig = inspect.signature(func)
 
@@ -176,4 +229,5 @@ def handle_command(message, sender):
         return result, True
 
     except Exception as e:
+
         return f"Command error: {repr(e)}", True
