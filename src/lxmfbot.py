@@ -19,11 +19,8 @@ class LXMFBot:
 
         self.name = name
         self.queue = Queue()
-
-        # Per-user per-command cooldown storage
         self.cooldowns = {}
 
-        # Stats storage
         self.state = {
             "stats": {
                 "total": 0,
@@ -40,57 +37,49 @@ class LXMFBot:
         self.base_path = os.path.join(dirs.user_data_dir, name)
         os.makedirs(self.base_path, exist_ok=True)
 
-        # Initialize Reticulum
         RNS.Reticulum(loglevel=RNS.LOG_INFO)
 
         idfile = os.path.join(self.base_path, "identity")
 
-        # Create identity if missing
         if not os.path.isfile(idfile):
             identity = RNS.Identity(True)
             identity.to_file(idfile)
 
-        # Load persistent identity
         self.id = RNS.Identity.from_file(idfile)
 
-        # Create LXMF router
         self.router = LXMRouter(
             identity=self.id,
             storagepath=dirs.user_data_dir
         )
 
-        # Register delivery identity
         self.local = self.router.register_delivery_identity(
             self.id,
             display_name=name
         )
 
-        # Register message callback
         self.router.register_delivery_callback(
             self._message_received
         )
 
-        # Initialize command system
         commands.set_bot(self)
         commands.load_plugins()
 
         print("🌐 Community Mesh Node Online")
 
         # =====================================================
-        # 📡 STARTUP ANNOUNCE (VERSION SAFE)
+        # 📡 VERSION-SAFE NETWORK ANNOUNCE
         # =====================================================
 
         try:
-            # Small delay to ensure transport is ready
             time.sleep(3)
 
-            # Announce delivery destination
-            RNS.Transport.announce(self.local.destination)
+            # This triggers proper network announce behavior
+            RNS.Transport.request_path(self.local.destination.hash)
 
-            print("📢 Startup announce sent successfully.")
+            print("📢 Startup path request sent (announce triggered).")
 
         except Exception as e:
-            print("⚠️ Failed to send announce:", e)
+            print("⚠️ Failed to trigger announce:", e)
 
     # =====================================================
     # Message Handling
@@ -98,13 +87,9 @@ class LXMFBot:
 
     def _message_received(self, message):
 
-        sender = RNS.hexrep(
-            message.source_hash,
-            delimit=False
-        )
+        sender = RNS.hexrep(message.source_hash, delimit=False)
 
         content = message.content.decode("utf-8").strip()
-
         if not content:
             return
 
@@ -120,7 +105,6 @@ class LXMFBot:
         if isinstance(entry, str):
             entry = commands.COMMANDS.get(entry)
 
-        # Admin bypass
         if commands.is_admin(sender):
 
             self._update_stats(sender, cmd_name)
@@ -130,7 +114,6 @@ class LXMFBot:
 
             return
 
-        # Normal cooldown flow
         if not self._check_cooldown(sender, cmd_name, entry):
             return
 
@@ -160,17 +143,11 @@ class LXMFBot:
             user_data[cmd] = now
             return True
 
-        elapsed = now - last_used
+        if now - last_used < command_cooldown:
 
-        if elapsed < command_cooldown:
+            remaining = int(command_cooldown - (now - last_used))
 
-            remaining = int(command_cooldown - elapsed)
-
-            self.send(
-                sender,
-                f"⏳ Please wait {remaining}s before using '{cmd}' again."
-            )
-
+            self.send(sender, f"⏳ Please wait {remaining}s before using '{cmd}' again.")
             return False
 
         user_data[cmd] = now
