@@ -1,3 +1,4 @@
+#Make sure ot move this file to the correct location in /etc/systemd/system/myapp.service
 [Unit]
 Description=LXMF Community Mesh Bot
 After=network.target
@@ -10,10 +11,10 @@ RestartSec=5
 
 
 # Project directory (CHANGE IF NEEDED)
-WorkingDirectory=/home/penguin/github.com/JamesM92/LXMF_Bot
+WorkingDirectory=/home/penguin/github.com/JamesM92/LXMF_Bot/src
 
 # Virtual environment python (IMPORTANT)
-ExecStart=/home/penguin/github.com/JamesM92/LXMF_Bot/.venv/bin/python3 /home/penguin/github.com/JamesM92/LXMF_Bot/runbot.py
+ExecStart=/home/penguin/github.com/JamesM92/LXMF_Bot/.venv/bin/python3 /home/penguin/github.com/JamesM92/LXMF_Bot/src/runbot.py
 
 
 
