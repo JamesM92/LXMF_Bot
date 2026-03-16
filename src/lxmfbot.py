@@ -20,10 +20,8 @@ class LXMFBot:
         self.name = name
         self.queue = Queue()
 
-        # Per-user per-command cooldown storage
         self.cooldowns = {}
 
-        # Stats storage
         self.state = {
             "stats": {
                 "total": 0,
@@ -70,6 +68,21 @@ class LXMFBot:
 
         print("🌐 Community Mesh Node Online")
 
+        # =====================================================
+        # 📡 SEND STARTUP ANNOUNCE
+        # =====================================================
+
+        try:
+            # Small delay to ensure transport is ready
+            time.sleep(2)
+
+            RNS.Transport.announce(self.local)
+
+            print("📢 Startup announce sent successfully.")
+
+        except Exception as e:
+            print("⚠️ Failed to send announce:", e)
+
     # =====================================================
     # Message Handling
     # =====================================================
@@ -88,21 +101,15 @@ class LXMFBot:
 
         cmd_name = content.split()[0].lower()
 
-        # Execute command
         response, handled = commands.handle_command(content, sender)
 
         if not handled:
             self.send(sender, "❌ Unrecognized command.")
             return
 
-        # Resolve alias to real command entry
         entry = commands.COMMANDS.get(cmd_name)
         if isinstance(entry, str):
             entry = commands.COMMANDS.get(entry)
-
-        # =====================================================
-        # 🚀 ADMIN BYPASS (ABSOLUTE PRIORITY)
-        # =====================================================
 
         if commands.is_admin(sender):
 
@@ -112,10 +119,6 @@ class LXMFBot:
                 self.send(sender, str(response))
 
             return
-
-        # =====================================================
-        # NORMAL COOLDOWN FLOW
-        # =====================================================
 
         if not self._check_cooldown(sender, cmd_name, entry):
             return
@@ -142,17 +145,10 @@ class LXMFBot:
 
         last_used = user_data.get(cmd)
 
-        # -------------------------------------------------
-        # FIRST TIME USING THIS COMMAND
-        # -------------------------------------------------
         if last_used is None:
-            # Allow immediate execution
             user_data[cmd] = now
             return True
 
-        # -------------------------------------------------
-        # NORMAL COOLDOWN CHECK
-        # -------------------------------------------------
         elapsed = now - last_used
 
         if elapsed < command_cooldown:
@@ -166,7 +162,6 @@ class LXMFBot:
 
             return False
 
-        # Update timestamp
         user_data[cmd] = now
         return True
 
