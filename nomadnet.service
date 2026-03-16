@@ -1,4 +1,4 @@
-                       
+#Make sure ot move this file to the correct location in /etc/systemd/system/nomadnet.service
 [Unit]
 Description=NomadNet Service
 Wants=network-online.target reticulum.service
@@ -17,4 +17,3 @@ StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
-
