@@ -1,0 +1,15 @@
+[Unit]
+Description=Reticulum Service
+Wants=network-online.target
+After=network-online.target dev-ttyUSB0.device
+Requires=dev-ttyUSB0.device
+
+[Service]
+Type=simple
+User=penguin
+ExecStart=/home/penguin/.local/bin/rnsd
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
